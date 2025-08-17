@@ -6,8 +6,8 @@
     <title>Medical Records</title>
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Custom CSS -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <!-- Custom CSS with cache-busting -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=1">
 </head>
 <body>
     <!-- Navigation Bar -->
@@ -105,8 +105,8 @@
             <div class="row">
                 {% for field in ['sn', 'date', 'time', 'am_number', 'rank', 'first_second_name', 'unit', 'phone_no', 'age', 'temp', 'bp', 'bp1', 'pauls', 'rest', 'wt', 'complain', 'diagn', 'plan', 'rmks'] %}
                 <div class="col-md-4 mb-3">
-                    <label for="{{ field }}" class="form-label">{{ field.replace('_', ' ').title() }}</label>
-                    <input type="text" name="{{ field }}" id="{{ field }}" class="form-control">
+                    <label for="add_{{ field }}" class="form-label">{{ field.replace('_', ' ').title() }}</label>
+                    <input type="text" name="{{ field }}" id="add_{{ field }}" class="form-control">
                 </div>
                 {% endfor %}
             </div>
@@ -118,20 +118,21 @@
             <input type="hidden" name="action" value="update">
             <div class="row">
                 <div class="col-md-4 mb-3">
-                    <label for="id" class="form-label">ID</label>
+                    <label for="update_id" class="form-label">ID</label>
                     <div class="input-group">
-                        <input type="text" name="id" id="id" class="form-control" required>
-                        <button type="button" id="fetch-record" class="btn btn-primary">🔍</button>
+                        <input type="text" name="id" id="update_id" class="form-control" required>
+                        <button type="button" id="fetch-record" class="btn btn-primary">🔍 Fetch</button>
                     </div>
                 </div>
                 {% for field in ['sn', 'date', 'time', 'am_number', 'rank', 'first_second_name', 'unit', 'phone_no', 'age', 'temp', 'bp', 'bp1', 'pauls', 'rest', 'wt', 'complain', 'diagn', 'plan', 'rmks'] %}
                 <div class="col-md-4 mb-3">
-                    <label for="{{ field }}" class="form-label">{{ field.replace('_', ' ').title() }}</label>
-                    <input type="text" name="{{ field }}" id="{{ field }}" class="form-control">
+                    <label for="update_{{ field }}" class="form-label">{{ field.replace('_', ' ').title() }}</label>
+                    <input type="text" name="{{ field }}" id="update_{{ field }}" class="form-control">
                 </div>
                 {% endfor %}
             </div>
             <button type="submit" class="btn btn-success">✔ Update</button>
+            <button type="button" id="clear-form" class="btn btn-secondary">Clear Form</button>
         </form>
 
         <h2>Delete Entry</h2>
@@ -139,8 +140,8 @@
             <input type="hidden" name="action" value="delete">
             <div class="row">
                 <div class="col-md-4 mb-3">
-                    <label for="id" class="form-label">ID</label>
-                    <input type="text" name="id" class="form-control" required>
+                    <label for="delete_id" class="form-label">ID</label>
+                    <input type="text" name="id" id="delete_id" class="form-control" required>
                 </div>
             </div>
             <button type="submit" class="btn btn-danger">Delete Entry</button>
@@ -152,42 +153,49 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <!-- Custom JavaScript for Dynamic Update -->
     <script>
+        // Fetch record by ID
         document.getElementById('fetch-record').addEventListener('click', async () => {
-            const id = document.getElementById('id').value;
+            const idInput = document.getElementById('update_id');
+            const id = idInput.value.trim();
             if (!id) {
                 alert('Please enter an ID');
                 return;
             }
 
             try {
-                const response = await fetch(`/get_record/${id}`);
+                const response = await fetch(`/get_record/${encodeURIComponent(id)}`, {
+                    method: 'GET',
+                    headers: { 'Accept': 'application/json' }
+                });
                 const data = await response.json();
 
                 if (response.ok) {
                     // Populate form fields
-                    for (const field in data) {
-                        if (field !== 'id') {
-                            const input = document.getElementById(field);
-                            if (input) {
-                                input.value = data[field] || '';
-                            }
+                    const fields = ['sn', 'date', 'time', 'am_number', 'rank', 'first_second_name', 'unit', 'phone_no', 'age', 'temp', 'bp', 'bp1', 'pauls', 'rest', 'wt', 'complain', 'diagn', 'plan', 'rmks'];
+                    fields.forEach(field => {
+                        const input = document.getElementById(`update_${field}`);
+                        if (input) {
+                            input.value = data[field] || '';
                         }
-                    }
+                    });
+                    console.log(`Fetched record ID: ${id}`);
                 } else {
                     // Clear form (except ID) and show error
                     const fields = ['sn', 'date', 'time', 'am_number', 'rank', 'first_second_name', 'unit', 'phone_no', 'age', 'temp', 'bp', 'bp1', 'pauls', 'rest', 'wt', 'complain', 'diagn', 'plan', 'rmks'];
                     fields.forEach(field => {
-                        const input = document.getElementById(field);
+                        const input = document.getElementById(`update_${field}`);
                         if (input) input.value = '';
                     });
                     alert(data.error || 'Record not found');
+                    console.log(`Record ID ${id} not found`);
                 }
             } catch (error) {
                 console.error('Error fetching record:', error);
-                alert('Error fetching record. Please try again.');
+                alert('Error fetching record. Please check the ID and try again.');
             }
         });
 
+        // Update record
         document.getElementById('update-form').addEventListener('submit', async (event) => {
             event.preventDefault();
             const form = event.target;
@@ -200,18 +208,25 @@
                 });
 
                 if (response.ok) {
-                    // Clear form
                     form.reset();
-                    // Flash message is handled by backend redirect
                     window.location.reload(); // Reload to show flash message
+                    console.log('Update successful');
                 } else {
                     const data = await response.json();
                     alert(data.error || 'Error updating record');
+                    console.log('Update failed:', data.error);
                 }
             } catch (error) {
                 console.error('Error updating record:', error);
                 alert('Error updating record. Please try again.');
             }
+        });
+
+        // Clear form
+        document.getElementById('clear-form').addEventListener('click', () => {
+            const form = document.getElementById('update-form');
+            form.reset();
+            console.log('Update form cleared');
         });
     </script>
 </body>
