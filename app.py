@@ -34,13 +34,13 @@ except ImportError:
 
 # Flask app setup
 app = Flask(__name__)
-app.secret_key = os.getenv("SECRET_KEY", "SECRET_KEY")
+app.secret_key = os.getenv("SECRET_KEY", "your-secret-key")
 
 # Environment variables
-BOT_TOKEN = os.getenv("BOT_TOKEN", "BOT_TOKEN")
-CHAT_ID = os.getenv("CHAT_ID", "CHAT_ID")
-GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "GITHUB_TOKEN")
-GITHUB_REPO = os.getenv("GITHUB_REPO", "GITHUB_REPO")
+BOT_TOKEN = os.getenv("BOT_TOKEN", "your-telegram-bot-token")
+CHAT_ID = os.getenv("CHAT_ID", "your-telegram-chat-id")
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "your-github-token")
+GITHUB_REPO = os.getenv("GITHUB_REPO", "your-username/your-repo")
 GITHUB_PATH = os.getenv("GITHUB_PATH", "gwoza-df-amb.db")
 DB_PATH = "gwoza-df-amb.db"
 
@@ -52,7 +52,7 @@ HEADERS = {
 }
 
 # Admin passphrase
-ADMIN_PASSPHRASE = os.getenv("ADMIN_PASSPHRASE", "admin1234")  # ADDED: Fallback to env variable
+ADMIN_PASSPHRASE = os.getenv("ADMIN_PASSPHRASE", "admin1234")  # Initialize from env
 
 # Initialize Telegram bot
 try:
@@ -65,10 +65,10 @@ except Exception as e:
 # GitHub file handling
 def upload_to_github(file_path, file_name):
     try:
-        if not GITHUB_TOKEN or GITHUB_TOKEN == "GITHUB_TOKEN":
+        if not GITHUB_TOKEN or GITHUB_TOKEN == "your-github-token":
             logger.error("GITHUB_TOKEN is not set or invalid.")
             return
-        if not GITHUB_REPO or GITHUB_REPO == "GITHUB_REPO":
+        if not GITHUB_REPO or GITHUB_REPO == "your-username/your-repo":
             logger.error("GITHUB_REPO is not set or invalid.")
             return
         if not GITHUB_PATH:
@@ -368,7 +368,7 @@ def index():
 # Admin route
 @app.route('/admin', methods=['GET', 'POST'])
 def admin():
-    global ADMIN_PASSPHRASE  # CHANGED: Moved global declaration to cover all uses
+    global ADMIN_PASSPHRASE  # CHANGED: Moved to top of function to cover all uses
     try:
         if 'user_id' not in session:
             if request.method == 'POST':
@@ -383,7 +383,7 @@ def admin():
                 passphrase = request.form.get('passphrase')
                 logger.info(f"Admin passphrase attempt by user {session['username']}")
                 if not ADMIN_PASSPHRASE:
-                    ADMIN_PASSPHRASE = os.getenv("ADMIN_PASSPHRASE", "admin1234")  # ADDED: Fallback to env if undefined
+                    ADMIN_PASSPHRASE = os.getenv("ADMIN_PASSPHRASE", "admin1234")  # ADDED: Fallback to env
                     logger.warning("ADMIN_PASSPHRASE was undefined, reloaded from env")
                 if passphrase == ADMIN_PASSPHRASE:
                     conn = get_db_connection()
@@ -466,9 +466,8 @@ def admin():
 
             elif action == 'change_passphrase':
                 new_passphrase = request.form['new_passphrase']
-                global ADMIN_PASSPHRASE  # CHANGED: Ensure global is declared
                 if new_passphrase:
-                    ADMIN_PASSPHRASE = new_passphrase
+                    ADMIN_PASSPHRASE = new_passphrase  # Update global variable
                     logger.info(f"Admin passphrase changed by user {session['username']}")
                     sync_send_telegram_message(f"Admin changed passphrase by user {session['username']}")
                     flash('Passphrase changed successfully!', 'success')
@@ -632,7 +631,7 @@ def cleanup():
     upload_to_github(DB_PATH, "gwoza-df-amb.db")
 
 # Initialize database on app startup
-init_db()  # CHANGED: Ensure database is initialized on startup
+init_db()
 
 atexit.register(cleanup)
 
