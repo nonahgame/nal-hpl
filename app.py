@@ -34,14 +34,14 @@ except ImportError:
 
 # Flask app setup
 app = Flask(__name__)
-app.secret_key = os.getenv("SECRET_KEY", "your-secret-key")
+app.secret_key = os.getenv("SECRET_KEY", "SECRET_KEY")
 
 # Environment variables
 BOT_TOKEN = os.getenv("BOT_TOKEN", "BOT_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID", "CHAT_ID")
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "GITHUB_TOKEN")
-GITHUB_REPO = os.getenv("GITHUB_REPO", "your-username/your-repo")
-GITHUB_PATH = os.getenv("GITHUB_PATH", "gwoza-df-amb.db")
+GITHUB_REPO = os.getenv("GITHUB_REPO", "GITHUB_REPO")
+GITHUB_PATH = os.getenv("GITHUB_PATH", "GITHUB_PATH")
 DB_PATH = "gwoza-df-amb.db"
 
 # GitHub API setup
@@ -52,7 +52,7 @@ HEADERS = {
 }
 
 # Admin passphrase
-ADMIN_PASSPHRASE = os.getenv("ADMIN_PASSPHRASE", "admin1234")
+ADMIN_PASSPHRASE = os.getenv("ADMIN_PASSPHRASE", "ADMIN_PASSPHRASE")
 
 # Initialize Telegram bot
 try:
@@ -371,7 +371,7 @@ def index():
 # Admin route
 @app.route('/admin', methods=['GET', 'POST'])
 def admin():
-    global ADMIN_PASSPHRASE
+    global ADMIN_PASSPHRASE  # Declare global at the start of the function
     try:
         if 'user_id' not in session:
             if request.method == 'POST':
@@ -466,7 +466,6 @@ def admin():
 
             elif action == 'change_passphrase':
                 new_passphrase = request.form['new_passphrase']
-                global ADMIN_PASSPHRASE
                 ADMIN_PASSPHRASE = new_passphrase
                 sync_send_telegram_message(f"Admin changed passphrase")
                 flash('Passphrase changed successfully!', 'success')
