@@ -1,4 +1,4 @@
-# app.py
+# app.py (unchanged from previous response)
 import os
 from dotenv import load_dotenv
 import pandas as pd
@@ -52,7 +52,7 @@ HEADERS = {
 }
 
 # Admin passphrase
-ADMIN_PASSPHRASE = os.getenv("ADMIN_PASSPHRASE", "admin1234")  # Initialize from env
+ADMIN_PASSPHRASE = os.getenv("ADMIN_PASSPHRASE", "admin1234")
 
 # Initialize Telegram bot
 try:
@@ -368,7 +368,7 @@ def index():
 # Admin route
 @app.route('/admin', methods=['GET', 'POST'])
 def admin():
-    global ADMIN_PASSPHRASE  # CHANGED: Moved to top of function to cover all uses
+    global ADMIN_PASSPHRASE
     try:
         if 'user_id' not in session:
             if request.method == 'POST':
@@ -383,7 +383,7 @@ def admin():
                 passphrase = request.form.get('passphrase')
                 logger.info(f"Admin passphrase attempt by user {session['username']}")
                 if not ADMIN_PASSPHRASE:
-                    ADMIN_PASSPHRASE = os.getenv("ADMIN_PASSPHRASE", "admin1234")  # ADDED: Fallback to env
+                    ADMIN_PASSPHRASE = os.getenv("ADMIN_PASSPHRASE", "admin1234")
                     logger.warning("ADMIN_PASSPHRASE was undefined, reloaded from env")
                 if passphrase == ADMIN_PASSPHRASE:
                     conn = get_db_connection()
@@ -467,7 +467,7 @@ def admin():
             elif action == 'change_passphrase':
                 new_passphrase = request.form['new_passphrase']
                 if new_passphrase:
-                    ADMIN_PASSPHRASE = new_passphrase  # Update global variable
+                    ADMIN_PASSPHRASE = new_passphrase
                     logger.info(f"Admin passphrase changed by user {session['username']}")
                     sync_send_telegram_message(f"Admin changed passphrase by user {session['username']}")
                     flash('Passphrase changed successfully!', 'success')
