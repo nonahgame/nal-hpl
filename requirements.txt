@@ -2,6 +2,7 @@ flask
 python-dotenv
 pandas
 werkzeug
-python-telegram-bot==13.7
+python-telegram-bot==21.4
 requests
+
 gunicorn
