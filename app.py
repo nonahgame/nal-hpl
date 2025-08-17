@@ -42,7 +42,7 @@ CHAT_ID = os.getenv("CHAT_ID", "CHAT_ID")
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "GITHUB_TOKEN")
 GITHUB_REPO = os.getenv("GITHUB_REPO", "GITHUB_REPO")
 GITHUB_PATH = os.getenv("GITHUB_PATH", "GITHUB_PATH")
-DB_PATH = "gwoza-df-amb.db"
+DB_PATH = "data/gwoza-df-amb.db"
 
 # GitHub API setup
 GITHUB_API_URL = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{GITHUB_PATH}"
@@ -56,11 +56,11 @@ ADMIN_PASSPHRASE = os.getenv("ADMIN_PASSPHRASE", "ADMIN_PASSPHRASE")
 
 # Initialize Telegram bot
 try:
-    bot = telegram.Bot(token=BOT_TOKEN)
+    application = telegram.Application.builder().token(BOT_TOKEN).build()
     logger.info("Telegram bot initialized successfully")
 except Exception as e:
     logger.error(f"Failed to initialize Telegram bot: {str(e)}")
-    bot = None
+    application = None
 
 # GitHub file handling
 def upload_to_github(file_path, file_name):
@@ -137,68 +137,77 @@ def download_from_github(file_name, destination_path):
 
 # Initialize database
 def init_db():
-    if download_from_github("gwoza-df-amb.db", DB_PATH):
-        logger.info("Database downloaded from GitHub")
-    else:
-        logger.info("No database found on GitHub, creating new one")
+    try:  # ADDED: Error handling for database initialization
+        if download_from_github("gwoza-df-amb.db", DB_PATH):
+            logger.info("Database downloaded from GitHub")
+        else:
+            logger.info("No database found on GitHub, creating new one")
 
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
 
-    c.execute('''CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        first_name TEXT NOT NULL,
-        second_name TEXT NOT NULL,
-        email TEXT UNIQUE NOT NULL,
-        phone TEXT NOT NULL,
-        password TEXT NOT NULL,
-        username TEXT NOT NULL,
-        is_admin INTEGER DEFAULT 0
-    )''')
+        # Create users table
+        c.execute('''CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            first_name TEXT NOT NULL,
+            second_name TEXT NOT NULL,
+            email TEXT UNIQUE NOT NULL,
+            phone TEXT NOT NULL,
+            password TEXT NOT NULL,
+            username TEXT NOT NULL,
+            is_admin INTEGER DEFAULT 0
+        )''')
 
-    c.execute('''CREATE TABLE IF NOT EXISTS edit_permissions (
-        user_id INTEGER PRIMARY KEY,
-        can_edit INTEGER DEFAULT 0,
-        FOREIGN KEY (user_id) REFERENCES users(id)
-    )''')
+        # Create edit_permissions table
+        c.execute('''CREATE TABLE IF NOT EXISTS edit_permissions (
+            user_id INTEGER PRIMARY KEY,
+            can_edit INTEGER DEFAULT 0,
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        )''')
 
-    c.execute('''CREATE TABLE IF NOT EXISTS todo (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        sn TEXT,
-        date TEXT,
-        time TEXT,
-        am_number TEXT,
-        rank TEXT,
-        first_second_name TEXT,
-        unit TEXT,
-        phone_no TEXT,
-        age INTEGER,
-        temp REAL,
-        bp REAL,
-        bp1 REAL,
-        pauls INTEGER,
-        rest TEXT,
-        wt TEXT,
-        complain TEXT,
-        diagn TEXT,
-        plan TEXT,
-        rmks TEXT
-    )''')
+        # Create todo table
+        c.execute('''CREATE TABLE IF NOT EXISTS todo (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            sn TEXT,
+            date TEXT,
+            time TEXT,
+            am_number TEXT,
+            rank TEXT,
+            first_second_name TEXT,
+            unit TEXT,
+            phone_no TEXT,
+            age INTEGER,
+            temp REAL,
+            bp REAL,
+            bp1 REAL,
+            pauls INTEGER,
+            rest TEXT,
+            wt TEXT,
+            complain TEXT,
+            diagn TEXT,
+            plan TEXT,
+            rmks TEXT
+        )''')
 
-    try:
-        c.execute("ALTER TABLE todo ADD COLUMN bp1 REAL")
-        logger.info("Added bp1 column to todo table")
-    except sqlite3.OperationalError:
-        logger.info("bp1 column already exists")
-    try:
-        c.execute("ALTER TABLE todo ADD COLUMN wt TEXT")
-        logger.info("Added wt column to todo table")
-    except sqlite3.OperationalError:
-        logger.info("wt column already exists")
+        # Add columns if they don't exist
+        try:
+            c.execute("ALTER TABLE todo ADD COLUMN bp1 REAL")
+            logger.info("Added bp1 column to todo table")
+        except sqlite3.OperationalError:
+            logger.info("bp1 column already exists")
+        try:
+            c.execute("ALTER TABLE todo ADD COLUMN wt TEXT")
+            logger.info("Added wt column to todo table")
+        except sqlite3.OperationalError:
+            logger.info("wt column already exists")
 
-    conn.commit()
-    conn.close()
-    upload_to_github(DB_PATH, "gwoza-df-amb.db")
+        conn.commit()
+        conn.close()
+        logger.info("Database initialized successfully")
+        upload_to_github(DB_PATH, "gwoza-df-amb.db")  # Ensure database is uploaded after initialization
+    except Exception as e:
+        logger.error(f"Failed to initialize database: {str(e)}", exc_info=True)
+        raise  # ADDED: Raise exception to halt startup if initialization fails
 
 # Database connection
 def get_db_connection():
@@ -213,11 +222,11 @@ def get_db_connection():
 
 # Send Telegram notification
 async def send_telegram_message(message):
-    if bot is None:
+    if application is None:
         logger.warning("Telegram bot not initialized, skipping notification")
         return
     try:
-        await bot.send_message(chat_id=CHAT_ID, text=message)
+        await application.bot.send_message(chat_id=CHAT_ID, text=message)
         logger.info(f"Telegram message sent: {message}")
     except Exception as e:
         logger.error(f"Failed to send Telegram message: {str(e)}")
@@ -466,6 +475,7 @@ def admin():
 
             elif action == 'change_passphrase':
                 new_passphrase = request.form['new_passphrase']
+                global ADMIN_PASSPHRASE  # ADDED: Ensure global variable is updated
                 ADMIN_PASSPHRASE = new_passphrase
                 sync_send_telegram_message(f"Admin changed passphrase")
                 flash('Passphrase changed successfully!', 'success')
@@ -527,22 +537,24 @@ def register():
 
             conn = get_db_connection()
             c = conn.cursor()
-            try:
-                c.execute("INSERT INTO users (first_name, second_name, email, phone, password, username) VALUES (?, ?, ?, ?, ?, ?)",
-                          (first_name, second_name, email, phone, password, username))
-                conn.commit()
-                upload_to_github(DB_PATH, "gwoza-df-amb.db")
-                sync_send_telegram_message(f"New user registered: {username}")
-                flash('Registration successful! Please log in.', 'success')
-                logger.info(f"User {username} registered successfully")
-                return redirect(url_for('login'))
-            except sqlite3.IntegrityError:
-                flash('Email already exists', 'error')
-                logger.warning(f"Registration failed: Email {email} already exists")
-            finally:
-                conn.close()
+            c.execute("INSERT INTO users (first_name, second_name, email, phone, password, username) VALUES (?, ?, ?, ?, ?, ?)",
+                      (first_name, second_name, email, phone, password, username))
+            conn.commit()
+            upload_to_github(DB_PATH, "gwoza-df-amb.db")
+            sync_send_telegram_message(f"New user registered: {username}")
+            flash('Registration successful! Please log in.', 'success')
+            logger.info(f"User {username} registered successfully")
+            conn.close()
+            return redirect(url_for('login'))
         return render_template('register.html')
 
+    except sqlite3.OperationalError as e:  # CHANGED: Specific handling for OperationalError
+        logger.error(f"Database error in register route: {str(e)}\n{traceback.format_exc()}")
+        if "no such table" in str(e):
+            flash('Database error: Users table not found. Please contact the administrator.', 'error')
+        else:
+            flash('Database error occurred. Please try again.', 'error')
+        return render_template('register.html')
     except Exception as e:
         logger.error(f"Error in register route: {str(e)}\n{traceback.format_exc()}")
         return "Internal Server Error: Check logs for details", 500
@@ -566,6 +578,7 @@ def recover():
                 sync_send_telegram_message(f"Password reset for user: {user['username']}")
                 flash('Password reset successfully! Please log in.', 'success')
                 logger.info(f"Password reset successful for user: {user['username']}")
+                conn.close()
                 return redirect(url_for('login'))
             flash('Email not found', 'error')
             logger.warning(f"Password recovery failed: Email {email} not found")
@@ -622,10 +635,10 @@ def cleanup():
     logger.info("Application shutting down, uploading database to GitHub")
     upload_to_github(DB_PATH, "gwoza-df-amb.db")
 
+# Initialize database on app startup
+init_db()  # CHANGED: Moved init_db call outside if __name__ == '__main__' to ensure it runs with gunicorn
+
 atexit.register(cleanup)
 
 if __name__ == '__main__':
-    init_db()
     app.run(host='0.0.0.0', port=int(os.getenv("PORT", 5000)))
-
-
