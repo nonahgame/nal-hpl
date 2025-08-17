@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - Open International Hospital</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f4f4f4; }
+        h1, h2 { text-align: center; color: #333; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; background-color: #fff; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        .form-container { margin: 20px 0; padding: 20px; background-color: #fff; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        .form-container form { display: flex; flex-wrap: wrap; gap: 10px; }
+        .form-container input, .form-container select, .form-container button { padding: 8px; margin: 5px; border: 1px solid #ccc; border-radius: 4px; }
+        .form-container button { background-color: #28a745; color: #fff; cursor: pointer; }
+        .form-container button:hover { background-color: #218838; }
+        .form-container input[type="number"] { width: 100px; }
+        .form-container input[type="text"] { width: 150px; }
+        .flash-messages { margin-bottom: 20px; }
+        .flash-messages .error { color: red; }
+        .flash-messages .success { color: green; }
+        .links { text-align: center; margin-top: 20px; }
+        .links a { color: #007bff; text-decoration: none; }
+        .links a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <h1>Admin Panel</h1>
+    <div class="flash-messages">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <p class="{{ category }}">{{ message }}</p>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+    </div>
+    <p><a href="{{ url_for('index') }}">Back to Home</a> | <a href="{{ url_for('logout') }}">Logout</a></p>
+    <h2>Manage Entries</h2>
+    {% if df is not none and not df.empty %}
+        <table>
+            <tr>
+                {% for col in df.columns %}
+                    <th>{{ col.replace('_', ' ').title() }}</th>
+                {% endfor %}
+            </tr>
+            {% for _, row in df.iterrows() %}
+                <tr>
+                    {% for col in df.columns %}
+                        <td>{{ row[col] }}</td>
+                    {% endfor %}
+                </tr>
+            {% endfor %}
+        </table>
+    {% else %}
+        <p>No records found.</p>
+    {% endif %}
+    <div class="form-container">
+        <h2>Add Entry</h2>
+        <form method="POST" action="{{ url_for('admin') }}">
+            <input type="hidden" name="action" value="add">
+            <input type="text" name="sn" placeholder="SN">
+            <input type="text" name="date" placeholder="Date">
+            <input type="text" name="time" placeholder="Time">
+            <input type="text" name="am_number" placeholder="AM Number">
+            <input type="text" name="rank" placeholder="Rank">
+            <input type="text" name="first_second_name" placeholder="First & Second Name">
+            <input type="text" name="unit" placeholder="Unit">
+            <input type="text" name="phone_no" placeholder="Phone No">
+            <input type="number" name="age" placeholder="Age">
+            <input type="number" name="temp" placeholder="Temp" step="0.1">
+            <input type="number" name="bp" placeholder="BP" step="0.1">
+            <input type="number" name="bp1" placeholder="BP1" step="0.1">
+            <input type="number" name="pauls" placeholder="Pauls">
+            <input type="text" name="rest" placeholder="Rest">
+            <input type="text" name="wt" placeholder="Wt">
+            <input type="text" name="complain" placeholder="Complain">
+            <input type="text" name="diagn" placeholder="Diagnosis">
+            <input type="text" name="plan" placeholder="Plan">
+            <input type="text" name="rmks" placeholder="Remarks">
+            <button type="submit">Add</button>
+        </form>
+    </div>
+    <div class="form-container">
+        <h2>Update Entry</h2>
+        <form method="POST" action="{{ url_for('admin') }}">
+            <input type="hidden" name="action" value="update">
+            <input type="number" name="id" placeholder="ID" required>
+            <input type="text" name="sn" placeholder="SN">
+            <input type="text" name="date" placeholder="Date">
+            <input type="text" name="time" placeholder="Time">
+            <input type="text" name="am_number" placeholder="AM Number">
+            <input type="text" name="rank" placeholder="Rank">
+            <input type="text" name="first_second_name" placeholder="First & Second Name">
+            <input type="text" name="unit" placeholder="Unit">
+            <input type="text" name="phone_no" placeholder="Phone No">
+            <input type="number" name="age" placeholder="Age">
+            <input type="number" name="temp" placeholder="Temp" step="0.1">
+            <input type="number" name="bp" placeholder="BP" step="0.1">
+            <input type="number" name="bp1" placeholder="BP1" step="0.1">
+            <input type="number" name="pauls" placeholder="Pauls">
+            <input type="text" name="rest" placeholder="Rest">
+            <input type="text" name="wt" placeholder="Wt">
+            <input type="text" name="complain" placeholder="Complain">
+            <input type="text" name="diagn" placeholder="Diagnosis">
+            <input type="text" name="plan" placeholder="Plan">
+            <input type="text" name="rmks" placeholder="Remarks">
+            <button type="submit">Update</button>
+        </form>
+    </div>
+    <div class="form-container">
+        <h2>Delete Entry</h2>
+        <form method="POST" action="{{ url_for('admin') }}">
+            <input type="hidden" name="action" value="delete">
+            <input type="number" name="id" placeholder="ID" required>
+            <button type="submit">Delete</button>
+        </form>
+    </div>
+    <div class="form-container">
+        <h2>Manage Users</h2>
+        <table>
+            <tr>
+                <th>ID</th>
+                <th>Username</th>
+                <th>Email</th>
+                <th>Edit Permission</th>
+                <th>Action</th>
+            </tr>
+            {% for user in users %}
+                <tr>
+                    <td>{{ user.id }}</td>
+                    <td>{{ user.username }}</td>
+                    <td>{{ user.email }}</td>
+                    <td>
+                        <form method="POST" action="{{ url_for('admin') }}">
+                            <input type="hidden" name="action" value="manage_user">
+                            <input type="hidden" name="user_id" value="{{ user.id }}">
+                            <select name="can_edit">
+                                <option value="0" {% if not user.can_edit %}selected{% endif %}>No</option>
+                                <option value="1" {% if user.can_edit %}selected{% endif %}>Yes</option>
+                            </select>
+                            <button type="submit">Update</button>
+                        </form>
+                    </td>
+                    <td>
+                        <form method="POST" action="{{ url_for('admin') }}">
+                            <input type="hidden" name="action" value="delete_user">
+                            <input type="hidden" name="user_id" value="{{ user.id }}">
+                            <button type="submit">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+            {% endfor %}
+        </table>
+    </div>
+    <div class="form-container">
+        <h2>Change Admin Passphrase</h2>
+        <form method="POST" action="{{ url_for('admin') }}">
+            <input type="hidden" name="action" value="change_passphrase">
+            <input type="text" name="new_passphrase" placeholder="New Passphrase" required>
+            <button type="submit">Change</button>
+        </form>
+    </div>
+</body>
+</html>
