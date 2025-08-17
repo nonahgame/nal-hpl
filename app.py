@@ -42,7 +42,7 @@ CHAT_ID = os.getenv("CHAT_ID", "CHAT_ID")
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "GITHUB_TOKEN")
 GITHUB_REPO = os.getenv("GITHUB_REPO", "GITHUB_REPO")
 GITHUB_PATH = os.getenv("GITHUB_PATH", "GITHUB_PATH")
-DB_PATH = "data/gwoza-df-amb.db"
+DB_PATH = "gwoza-df-amb.db"
 
 # GitHub API setup
 GITHUB_API_URL = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{GITHUB_PATH}"
