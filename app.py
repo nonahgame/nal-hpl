@@ -56,11 +56,11 @@ ADMIN_PASSPHRASE = os.getenv("ADMIN_PASSPHRASE", "ADMIN_PASSPHRASE")
 
 # Initialize Telegram bot
 try:
-    application = telegram.Application.builder().token(BOT_TOKEN).build()
+    bot = telegram.Bot(token=BOT_TOKEN)
     logger.info("Telegram bot initialized successfully")
 except Exception as e:
     logger.error(f"Failed to initialize Telegram bot: {str(e)}")
-    application = None
+    bot = None
 
 # GitHub file handling
 def upload_to_github(file_path, file_name):
@@ -213,11 +213,11 @@ def get_db_connection():
 
 # Send Telegram notification
 async def send_telegram_message(message):
-    if application is None:
+    if bot is None:
         logger.warning("Telegram bot not initialized, skipping notification")
         return
     try:
-        await application.bot.send_message(chat_id=CHAT_ID, text=message)
+        await bot.send_message(chat_id=CHAT_ID, text=message)
         logger.info(f"Telegram message sent: {message}")
     except Exception as e:
         logger.error(f"Failed to send Telegram message: {str(e)}")
