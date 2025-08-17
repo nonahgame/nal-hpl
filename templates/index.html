@@ -3,206 +3,216 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Open International Hospital</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f4f4f4; }
-        h1, h2 { text-align: center; color: #333; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; background-color: #fff; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        th { background-color: #f2f2f2; }
-        .form-container { margin: 20px 0; padding: 20px; background-color: #fff; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-        .form-container form { display: flex; flex-wrap: wrap; gap: 10px; }
-        .form-container input, .form-container button { padding: 8px; margin: 5px; border: 1px solid #ccc; border-radius: 4px; }
-        .form-container button { background-color: #28a745; color: #fff; cursor: pointer; }
-        .form-container button:hover { background-color: #218838; }
-        .form-container input[type="number"] { width: 100px; }
-        .form-container input[type="text"] { width: 150px; }
-        .search-form { margin-bottom: 20px; }
-        .search-form input { padding: 8px; width: 200px; }
-        .search-form button { padding: 8px; }
-        .flash-messages { margin-bottom: 20px; }
-        .flash-messages .error { color: red; }
-        .flash-messages .success { color: green; }
-        .pagination { margin-top: 20px; text-align: center; }
-        .pagination a { margin: 0 10px; color: #007bff; text-decoration: none; }
-        .pagination a:hover { text-decoration: underline; }
-    </style>
+    <title>Medical Records</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="{{ url_for('index') }}">Medical Records</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('search') }}">Search</a>
+                    </li>
+                    {% if session.is_admin %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('admin') }}">Admin</a>
+                    </li>
+                    {% endif %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('logout') }}">Logout</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container mt-4">
+        <h1>Medical Records</h1>
+
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'success' if category == 'success' else 'danger' }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <!-- Search Form -->
+        <form method="POST" action="{{ url_for('index') }}" class="mb-4">
+            <div class="input-group">
+                <input type="text" name="search_query" class="form-control" placeholder="Search by SN, Name, AM Number, or Complaint" value="{{ search_query or '' }}">
+                <button type="submit" class="btn btn-primary">Search</button>
+            </div>
+        </form>
+
+        <!-- Data Table -->
+        {% if df is not none and not df.empty %}
+        <div class="table-responsive">
+            <table class="table table-dark table-bordered">
+                <thead>
+                    <tr>
+                        {% for column in df.columns %}
+                        <th>{{ column.replace('_', ' ').title() }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for _, row in df.iterrows() %}
+                    <tr>
+                        {% for column in df.columns %}
+                        <td>{{ row[column] }}</td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        <div class="d-flex justify-content-between">
+            {% if has_prev %}
+            <a href="{{ url_for('index', cursor=prev_cursor, direction='prev', search_query=search_query) }}" class="btn btn-primary">Previous</a>
+            {% else %}
+            <span></span>
+            {% endif %}
+            {% if has_next %}
+            <a href="{{ url_for('index', cursor=next_cursor, direction='next', search_query=search_query) }}" class="btn btn-primary">Next</a>
+            {% endif %}
+        </div>
+        {% else %}
+        <p>No records found.</p>
+        {% endif %}
+
+        <!-- Add/Update/Delete Forms (only for users with edit permissions) -->
+        {% if can_edit %}
+        <h2>Add New Entry</h2>
+        <form method="POST" action="{{ url_for('index') }}" class="mb-4">
+            <input type="hidden" name="action" value="add">
+            <div class="row">
+                {% for field in ['sn', 'date', 'time', 'am_number', 'rank', 'first_second_name', 'unit', 'phone_no', 'age', 'temp', 'bp', 'bp1', 'pauls', 'rest', 'wt', 'complain', 'diagn', 'plan', 'rmks'] %}
+                <div class="col-md-4 mb-3">
+                    <label for="{{ field }}" class="form-label">{{ field.replace('_', ' ').title() }}</label>
+                    <input type="text" name="{{ field }}" id="{{ field }}" class="form-control">
+                </div>
+                {% endfor %}
+            </div>
+            <button type="submit" class="btn btn-success">Add Entry</button>
+        </form>
+
+        <h2>Update Entry</h2>
+        <form method="POST" action="{{ url_for('index') }}" id="update-form" class="mb-4">
+            <input type="hidden" name="action" value="update">
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <label for="id" class="form-label">ID</label>
+                    <div class="input-group">
+                        <input type="text" name="id" id="id" class="form-control" required>
+                        <button type="button" id="fetch-record" class="btn btn-primary">🔍</button>
+                    </div>
+                </div>
+                {% for field in ['sn', 'date', 'time', 'am_number', 'rank', 'first_second_name', 'unit', 'phone_no', 'age', 'temp', 'bp', 'bp1', 'pauls', 'rest', 'wt', 'complain', 'diagn', 'plan', 'rmks'] %}
+                <div class="col-md-4 mb-3">
+                    <label for="{{ field }}" class="form-label">{{ field.replace('_', ' ').title() }}</label>
+                    <input type="text" name="{{ field }}" id="{{ field }}" class="form-control">
+                </div>
+                {% endfor %}
+            </div>
+            <button type="submit" class="btn btn-success">✔ Update</button>
+        </form>
+
+        <h2>Delete Entry</h2>
+        <form method="POST" action="{{ url_for('index') }}" class="mb-4">
+            <input type="hidden" name="action" value="delete">
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <label for="id" class="form-label">ID</label>
+                    <input type="text" name="id" class="form-control" required>
+                </div>
+            </div>
+            <button type="submit" class="btn btn-danger">Delete Entry</button>
+        </form>
+        {% endif %}
+    </div>
+
+    <!-- Bootstrap JS and Popper.js -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Custom JavaScript for Dynamic Update -->
     <script>
-        async function fetchRecord() {
-            const id = document.getElementById('update_id').value;
+        document.getElementById('fetch-record').addEventListener('click', async () => {
+            const id = document.getElementById('id').value;
             if (!id) {
                 alert('Please enter an ID');
                 return;
             }
+
             try {
                 const response = await fetch(`/get_record/${id}`);
                 const data = await response.json();
+
                 if (response.ok) {
-                    document.getElementById('sn').value = data.sn || '';
-                    document.getElementById('date').value = data.date || '';
-                    document.getElementById('time').value = data.time || '';
-                    document.getElementById('am_number').value = data.am_number || '';
-                    document.getElementById('rank').value = data.rank || '';
-                    document.getElementById('first_second_name').value = data.first_second_name || '';
-                    document.getElementById('unit').value = data.unit || '';
-                    document.getElementById('phone_no').value = data.phone_no || '';
-                    document.getElementById('age').value = data.age || '';
-                    document.getElementById('temp').value = data.temp || '';
-                    document.getElementById('bp').value = data.bp || '';
-                    document.getElementById('bp1').value = data.bp1 || '';
-                    document.getElementById('pauls').value = data.pauls || '';
-                    document.getElementById('rest').value = data.rest || '';
-                    document.getElementById('wt').value = data.wt || '';
-                    document.getElementById('complain').value = data.complain || '';
-                    document.getElementById('diagn').value = data.diagn || '';
-                    document.getElementById('plan').value = data.plan || '';
-                    document.getElementById('rmks').value = data.rmks || '';
+                    // Populate form fields
+                    for (const field in data) {
+                        if (field !== 'id') {
+                            const input = document.getElementById(field);
+                            if (input) {
+                                input.value = data[field] || '';
+                            }
+                        }
+                    }
                 } else {
+                    // Clear form (except ID) and show error
+                    const fields = ['sn', 'date', 'time', 'am_number', 'rank', 'first_second_name', 'unit', 'phone_no', 'age', 'temp', 'bp', 'bp1', 'pauls', 'rest', 'wt', 'complain', 'diagn', 'plan', 'rmks'];
+                    fields.forEach(field => {
+                        const input = document.getElementById(field);
+                        if (input) input.value = '';
+                    });
                     alert(data.error || 'Record not found');
-                    clearForm();
                 }
             } catch (error) {
-                alert('Error fetching record');
-                clearForm();
+                console.error('Error fetching record:', error);
+                alert('Error fetching record. Please try again.');
             }
-        }
+        });
 
-        function clearForm() {
-            const idField = document.getElementById('update_id').value;
-            document.getElementById('update_form').reset();
-            document.getElementById('update_id').value = idField;
-        }
-
-        async function submitUpdate() {
-            const form = document.getElementById('update_form');
+        document.getElementById('update-form').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const form = event.target;
             const formData = new FormData(form);
-            formData.append('action', 'update');
+
             try {
-                const response = await fetch('/', {
+                const response = await fetch(form.action, {
                     method: 'POST',
                     body: formData
                 });
-                const text = await response.text();
-                if (text.includes('Entry updated successfully')) {
-                    alert('Entry updated successfully!');
-                    clearForm();
-                    location.reload();
+
+                if (response.ok) {
+                    // Clear form
+                    form.reset();
+                    // Flash message is handled by backend redirect
+                    window.location.reload(); // Reload to show flash message
                 } else {
-                    alert('Error updating record');
+                    const data = await response.json();
+                    alert(data.error || 'Error updating record');
                 }
             } catch (error) {
-                alert('Error submitting update');
+                console.error('Error updating record:', error);
+                alert('Error updating record. Please try again.');
             }
-        }
+        });
     </script>
-</head>
-<body>
-    <h1>Open International Hospital</h1>
-    <div class="flash-messages">
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                    <p class="{{ category }}">{{ message }}</p>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
-    </div>
-    <p>Welcome, {{ session.username }}! <a href="{{ url_for('logout') }}">Logout</a> {% if session.is_admin %}| <a href="{{ url_for('admin') }}">Admin Panel</a>{% endif %}</p>
-    <div class="search-form">
-        <form method="POST" action="{{ url_for('index') }}">
-            <input type="text" name="search_query" placeholder="Search by SN, Name, AM Number, or Complain" value="{{ search_query }}">
-            <button type="submit">Search</button>
-        </form>
-    </div>
-    {% if df is not none and not df.empty %}
-        <table>
-            <tr>
-                {% for col in df.columns %}
-                    <th>{{ col.replace('_', ' ').title() }}</th>
-                {% endfor %}
-            </tr>
-            {% for _, row in df.iterrows() %}
-                <tr>
-                    {% for col in df.columns %}
-                        <td>{{ row[col] }}</td>
-                    {% endfor %}
-                </tr>
-            {% endfor %}
-        </table>
-        <div class="pagination">
-            {% if has_prev %}
-                <a href="{{ url_for('index', cursor=prev_cursor, direction='prev', search_query=search_query) }}">Previous</a>
-            {% endif %}
-            {% if has_next %}
-                <a href="{{ url_for('index', cursor=next_cursor, direction='next', search_query=search_query) }}">Next</a>
-            {% endif %}
-        </div>
-    {% else %}
-        <p>No records found.</p>
-    {% endif %}
-    {% if can_edit %}
-        <div class="form-container">
-            <h2>Add Entry</h2>
-            <form method="POST" action="{{ url_for('index') }}">
-                <input type="hidden" name="action" value="add">
-                <input type="text" name="sn" placeholder="SN">
-                <input type="text" name="date" placeholder="Date">
-                <input type="text" name="time" placeholder="Time">
-                <input type="text" name="am_number" placeholder="AM Number">
-                <input type="text" name="rank" placeholder="Rank">
-                <input type="text" name="first_second_name" placeholder="First & Second Name">
-                <input type="text" name="unit" placeholder="Unit">
-                <input type="text" name="phone_no" placeholder="Phone No">
-                <input type="number" name="age" placeholder="Age">
-                <input type="number" name="temp" placeholder="Temp" step="0.1">
-                <input type="number" name="bp" placeholder="BP" step="0.1">
-                <input type="number" name="bp1" placeholder="BP1" step="0.1">
-                <input type="number" name="pauls" placeholder="Pauls">
-                <input type="text" name="rest" placeholder="Rest">
-                <input type="text" name="wt" placeholder="Wt">
-                <input type="text" name="complain" placeholder="Complain">
-                <input type="text" name="diagn" placeholder="Diagnosis">
-                <input type="text" name="plan" placeholder="Plan">
-                <input type="text" name="rmks" placeholder="Remarks">
-                <button type="submit">Add</button>
-            </form>
-        </div>
-        <div class="form-container">
-            <h2>Update Entry</h2>
-            <form id="update_form" method="POST" action="{{ url_for('index') }}">
-                <input type="hidden" name="action" value="update">
-                <input type="number" id="update_id" name="id" placeholder="ID" required>
-                <button type="button" onclick="fetchRecord()">🔍</button>
-                <input type="text" id="sn" name="sn" placeholder="SN">
-                <input type="text" id="date" name="date" placeholder="Date">
-                <input type="text" id="time" name="time" placeholder="Time">
-                <input type="text" id="am_number" name="am_number" placeholder="AM Number">
-                <input type="text" id="rank" name="rank" placeholder="Rank">
-                <input type="text" id="first_second_name" name="first_second_name" placeholder="First & Second Name">
-                <input type="text" id="unit" name="unit" placeholder="Unit">
-                <input type="text" id="phone_no" name="phone_no" placeholder="Phone No">
-                <input type="number" id="age" name="age" placeholder="Age">
-                <input type="number" id="temp" name="temp" placeholder="Temp" step="0.1">
-                <input type="number" id="bp" name="bp" placeholder="BP" step="0.1">
-                <input type="number" id="bp1" name="bp1" placeholder="BP1" step="0.1">
-                <input type="number" id="pauls" name="pauls" placeholder="Pauls">
-                <input type="text" id="rest" name="rest" placeholder="Rest">
-                <input type="text" id="wt" name="wt" placeholder="Wt">
-                <input type="text" id="complain" name="complain" placeholder="Complain">
-                <input type="text" id="diagn" name="diagn" placeholder="Diagnosis">
-                <input type="text" id="plan" name="plan" placeholder="Plan">
-                <input type="text" id="rmks" name="rmks" placeholder="Remarks">
-                <button type="button" onclick="submitUpdate()">✔</button>
-            </form>
-        </div>
-        <div class="form-container">
-            <h2>Delete Entry</h2>
-            <form method="POST" action="{{ url_for('index') }}">
-                <input type="hidden" name="action" value="delete">
-                <input type="number" name="id" placeholder="ID" required>
-                <button type="submit">Delete</button>
-            </form>
-        </div>
-    {% endif %}
 </body>
 </html>
