@@ -1,0 +1,7 @@
+flask
+python-dotenv
+pandas
+werkzeug
+python-telegram-bot==13.7
+requests
+gunicorn
