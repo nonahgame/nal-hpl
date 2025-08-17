@@ -3,140 +3,41 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Todo List</title>
+    <title>Open International Hospital</title>
     <style>
-        body {
-            background-color: black;
-            color: white;
-            font-family: Arial, sans-serif;
-            margin: 20px;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-        }
-        th, td {
-            border: 1px solid white;
-            padding: 8px;
-            text-align: left;
-        }
-        th {
-            background-color: blue;
-        }
-        .namer {
-            color: blue;
-        }
-        .temp-green {
-            background-color: green;
-        }
-        .temp-red {
-            background-color: red;
-        }
-        .bp-green {
-            background-color: green;
-        }
-        .bp-red {
-            background-color: red;
-        }
-        .bp1-green {
-            background-color: green;
-        }
-        .bp1-red {
-            background-color: red;
-        }
-        .pagination {
-            margin-top: 20px;
-            display: flex;
-            gap: 10px;
-            align-items: center;
-        }
-        .pagination a, .pagination button {
-            color: white;
-            padding: 8px 12px;
-            text-decoration: none;
-            border: 1px solid white;
-            border-radius: 4px;
-        }
-        .pagination a:hover, .pagination button:hover {
-            background-color: blue;
-        }
-        .pagination button:disabled {
-            color: grey;
-            border-color: grey;
-            cursor: not-allowed;
-        }
-        .search-container {
-            margin-bottom: 20px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        .search-container input {
-            padding: 8px;
-            border-radius: 4px;
-            border: 1px solid white;
-            background-color: #222;
-            color: white;
-        }
-        .search-container button {
-            padding: 8px;
-            border-radius: 4px;
-            border: 1px solid white;
-            background-color: #333;
-            color: white;
-            cursor: pointer;
-        }
-        .search-container button:hover {
-            background-color: blue;
-        }
-        .message {
-            color: green;
-        }
-        .error {
-            color: red;
-        }
-        .form-container {
-            margin-top: 20px;
-            padding: 10px;
-            border: 1px solid white;
-            border-radius: 4px;
-        }
-        .form-container input, .form-container button {
-            margin: 5px;
-            padding: 8px;
-            border-radius: 4px;
-            border: 1px solid white;
-            background-color: #222;
-            color: white;
-        }
-        .form-container button {
-            background-color: #333;
-            cursor: pointer;
-        }
-        .form-container button:hover {
-            background-color: blue;
-        }
-        .id-container {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f4f4f4; }
+        h1, h2 { text-align: center; color: #333; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; background-color: #fff; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        .form-container { margin: 20px 0; padding: 20px; background-color: #fff; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        .form-container form { display: flex; flex-wrap: wrap; gap: 10px; }
+        .form-container input, .form-container button { padding: 8px; margin: 5px; border: 1px solid #ccc; border-radius: 4px; }
+        .form-container button { background-color: #28a745; color: #fff; cursor: pointer; }
+        .form-container button:hover { background-color: #218838; }
+        .form-container input[type="number"] { width: 100px; }
+        .form-container input[type="text"] { width: 150px; }
+        .search-form { margin-bottom: 20px; }
+        .search-form input { padding: 8px; width: 200px; }
+        .search-form button { padding: 8px; }
+        .flash-messages { margin-bottom: 20px; }
+        .flash-messages .error { color: red; }
+        .flash-messages .success { color: green; }
+        .pagination { margin-top: 20px; text-align: center; }
+        .pagination a { margin: 0 10px; color: #007bff; text-decoration: none; }
+        .pagination a:hover { text-decoration: underline; }
     </style>
     <script>
         async function fetchRecord() {
-            const id = document.getElementById('update-id').value;
+            const id = document.getElementById('update_id').value;
             if (!id) {
                 alert('Please enter an ID');
                 return;
             }
-
             try {
                 const response = await fetch(`/get_record/${id}`);
                 const data = await response.json();
-
                 if (response.ok) {
-                    // Populate form fields
                     document.getElementById('sn').value = data.sn || '';
                     document.getElementById('date').value = data.date || '';
                     document.getElementById('time').value = data.time || '';
@@ -158,177 +59,150 @@
                     document.getElementById('rmks').value = data.rmks || '';
                 } else {
                     alert(data.error || 'Record not found');
-                    document.getElementById('update-form').reset();
-                    document.getElementById('update-id').value = id; // Retain the ID
+                    clearForm();
                 }
             } catch (error) {
-                console.error('Error fetching record:', error);
-                alert('Error fetching record. Please try again.');
-                document.getElementById('update-form').reset();
-                document.getElementById('update-id').value = id; // Retain the ID
+                alert('Error fetching record');
+                clearForm();
             }
         }
 
-        // Add event listener to clear form after successful update
-        document.addEventListener('DOMContentLoaded', () => {
-            const updateForm = document.getElementById('update-form');
-            updateForm.addEventListener('submit', async (event) => {
-                event.preventDefault(); // Prevent default form submission
+        function clearForm() {
+            const idField = document.getElementById('update_id').value;
+            document.getElementById('update_form').reset();
+            document.getElementById('update_id').value = idField;
+        }
 
-                try {
-                    const formData = new FormData(updateForm);
-                    const response = await fetch('/', {
-                        method: 'POST',
-                        body: formData
-                    });
-
-                    if (response.ok) {
-                        // Check for success message in response
-                        const text = await response.text();
-                        if (text.includes('Entry updated successfully')) {
-                            updateForm.reset(); // Clear the form
-                            alert('Entry updated successfully!');
-                            window.location.reload(); // Refresh to show updated data
-                        } else {
-                            alert('Update failed. Please try again.');
-                        }
-                    } else {
-                        alert('Update failed. Please try again.');
-                    }
-                } catch (error) {
-                    console.error('Error submitting update:', error);
-                    alert('Error submitting update. Please try again.');
+        async function submitUpdate() {
+            const form = document.getElementById('update_form');
+            const formData = new FormData(form);
+            formData.append('action', 'update');
+            try {
+                const response = await fetch('/', {
+                    method: 'POST',
+                    body: formData
+                });
+                const text = await response.text();
+                if (text.includes('Entry updated successfully')) {
+                    alert('Entry updated successfully!');
+                    clearForm();
+                    location.reload();
+                } else {
+                    alert('Error updating record');
                 }
-            });
-        });
+            } catch (error) {
+                alert('Error submitting update');
+            }
+        }
     </script>
 </head>
 <body>
-    <h1>Todo List</h1>
-    <a href="{{ url_for('logout') }}">Logout</a>
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            {% for category, message in messages %}
-                <p class="{{ category }}">{{ message }}</p>
-            {% endfor %}
-        {% endif %}
-    {% endwith %}
-
-    <!-- Search Bar with Icon -->
-    <div class="search-container">
+    <h1>Open International Hospital</h1>
+    <div class="flash-messages">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <p class="{{ category }}">{{ message }}</p>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+    </div>
+    <p>Welcome, {{ session.username }}! <a href="{{ url_for('logout') }}">Logout</a> {% if session.is_admin %}| <a href="{{ url_for('admin') }}">Admin Panel</a>{% endif %}</p>
+    <div class="search-form">
         <form method="POST" action="{{ url_for('index') }}">
-            <input type="text" name="search_query" placeholder="Search by SN, Name, AM Number, or Complaint" value="{{ search_query }}">
-            <button type="submit">🔍 Search</button>
+            <input type="text" name="search_query" placeholder="Search by SN, Name, AM Number, or Complain" value="{{ search_query }}">
+            <button type="submit">Search</button>
         </form>
     </div>
-
-    {% if can_edit %}
-    <!-- Add Entry Form -->
-    <div class="form-container">
-        <h2>Add New Entry</h2>
-        <form method="POST">
-            <input type="hidden" name="action" value="add">
-            <label>SN: <input type="text" name="sn"></label><br>
-            <label>Date: <input type="date" name="date"></label><br>
-            <label>Time: <input type="time" name="time"></label><br>
-            <label>AM Number: <input type="text" name="am_number"></label><br>
-            <label>Rank: <input type="text" name="rank"></label><br>
-            <label>Name: <input type="text" name="first_second_name"></label><br>
-            <label>Unit: <input type="text" name="unit"></label><br>
-            <label>Phone: <input type="text" name="phone_no"></label><br>
-            <label>Age: <input type="number" name="age"></label><br>
-            <label>Temp: <input type="number" step="0.1" name="temp"></label><br>
-            <label>BP: <input type="number" name="bp"></label><br>
-            <label>BP1: <input type="number" name="bp1"></label><br>
-            <label>Pulse: <input type="number" name="pauls"></label><br>
-            <label>Rest: <input type="text" name="rest"></label><br>
-            <label>WT: <input type="text" name="wt"></label><br>
-            <label>Complaint: <input type="text" name="complain"></label><br>
-            <label>Diagnosis: <input type="text" name="diagn"></label><br>
-            <label>Plan: <input type="text" name="plan"></label><br>
-            <label>Remarks: <input type="text" name="rmks"></label><br>
-            <button type="submit">Add</button>
-        </form>
-    </div>
-
-    <!-- Update Entry Form -->
-    <div class="form-container">
-        <h2>Update Entry</h2>
-        <form method="POST" id="update-form">
-            <input type="hidden" name="action" value="update">
-            <div class="id-container">
-                <label>ID: <input type="number" id="update-id" name="id" required></label>
-                <button type="button" onclick="fetchRecord()">🔍 Enter</button>
-            </div>
-            <label>SN: <input type="text" id="sn" name="sn"></label><br>
-            <label>Date: <input type="date" id="date" name="date"></label><br>
-            <label>Time: <input type="time" id="time" name="time"></label><br>
-            <label>AM Number: <input type="text" id="am_number" name="am_number"></label><br>
-            <label>Rank: <input type="text" id="rank" name="rank"></label><br>
-            <label>Name: <input type="text" id="first_second_name" name="first_second_name"></label><br>
-            <label>Unit: <input type="text" id="unit" name="unit"></label><br>
-            <label>Phone: <input type="text" id="phone_no" name="phone_no"></label><br>
-            <label>Age: <input type="number" id="age" name="age"></label><br>
-            <label>Temp: <input type="number" step="0.1" id="temp" name="temp"></label><br>
-            <label>BP: <input type="number" id="bp" name="bp"></label><br>
-            <label>BP1: <input type="number" id="bp1" name="bp1"></label><br>
-            <label>Pulse: <input type="number" id="pauls" name="pauls"></label><br>
-            <label>Rest: <input type="text" id="rest" name="rest"></label><br>
-            <label>WT: <input type="text" id="wt" name="wt"></label><br>
-            <label>Complaint: <input type="text" id="complain" name="complain"></label><br>
-            <label>Diagnosis: <input type="text" id="diagn" name="diagn"></label><br>
-            <label>Plan: <input type="text" id="plan" name="plan"></label><br>
-            <label>Remarks: <input type="text" id="rmks" name="rmks"></label><br>
-            <button type="submit">✔ Update</button>
-        </form>
-    </div>
-
-    <!-- Delete Entry Form -->
-    <div class="form-container">
-        <h2>Delete Entry</h2>
-        <form method="POST">
-            <input type="hidden" name="action" value="delete">
-            <label>ID: <input type="number" name="id" required></label><br>
-            <button type="submit">Delete</button>
-        </form>
-    </div>
-    {% endif %}
-
-    <!-- Data Table -->
-    <h2>Entries</h2>
-    <table>
-        <tr>
-            {% for col in df.columns %}
-                <th>{{ col }}</th>
-            {% endfor %}
-        </tr>
-        {% for index, row in df.iterrows() %}
+    {% if df is not none and not df.empty %}
+        <table>
             <tr>
                 {% for col in df.columns %}
-                    <td {% if col == 'temp' and row[col] is not none and row[col] > 37.5 %}class="temp-red"
-                        {% elif col == 'temp' and row[col] is not none and row[col] <= 37.5 %}class="temp-green"
-                        {% elif col == 'bp' and row[col] is not none and row[col] > 140 %}class="bp-red"
-                        {% elif col == 'bp' and row[col] is not none and row[col] <= 140 %}class="bp-green"
-                        {% elif col == 'bp1' and row[col] is not none and row[col] > 90 %}class="bp1-red"
-                        {% elif col == 'bp1' and row[col] is not none and row[col] <= 90 %}class="bp1-green"
-                        {% elif col == 'first_second_name' %}class="namer"{% endif %}>
-                        {{ row[col] | default('') }}
-                    </td>
+                    <th>{{ col.replace('_', ' ').title() }}</th>
                 {% endfor %}
             </tr>
-        {% endfor %}
-    </table>
-
-    <!-- Pagination with Icons -->
-    <div class="pagination">
-        <button {% if not has_prev %}disabled{% endif %}
-                onclick="window.location.href='{{ url_for('index', cursor=prev_cursor, direction='prev', search_query=search_query) }}'">
-            ⬅ Previous
-        </button>
-        <button {% if not has_next %}disabled{% endif %}
-                onclick="window.location.href='{{ url_for('index', cursor=next_cursor, direction='next', search_query=search_query) }}'">
-            Next ➡
-        </button>
-    </div>
+            {% for _, row in df.iterrows() %}
+                <tr>
+                    {% for col in df.columns %}
+                        <td>{{ row[col] }}</td>
+                    {% endfor %}
+                </tr>
+            {% endfor %}
+        </table>
+        <div class="pagination">
+            {% if has_prev %}
+                <a href="{{ url_for('index', cursor=prev_cursor, direction='prev', search_query=search_query) }}">Previous</a>
+            {% endif %}
+            {% if has_next %}
+                <a href="{{ url_for('index', cursor=next_cursor, direction='next', search_query=search_query) }}">Next</a>
+            {% endif %}
+        </div>
+    {% else %}
+        <p>No records found.</p>
+    {% endif %}
+    {% if can_edit %}
+        <div class="form-container">
+            <h2>Add Entry</h2>
+            <form method="POST" action="{{ url_for('index') }}">
+                <input type="hidden" name="action" value="add">
+                <input type="text" name="sn" placeholder="SN">
+                <input type="text" name="date" placeholder="Date">
+                <input type="text" name="time" placeholder="Time">
+                <input type="text" name="am_number" placeholder="AM Number">
+                <input type="text" name="rank" placeholder="Rank">
+                <input type="text" name="first_second_name" placeholder="First & Second Name">
+                <input type="text" name="unit" placeholder="Unit">
+                <input type="text" name="phone_no" placeholder="Phone No">
+                <input type="number" name="age" placeholder="Age">
+                <input type="number" name="temp" placeholder="Temp" step="0.1">
+                <input type="number" name="bp" placeholder="BP" step="0.1">
+                <input type="number" name="bp1" placeholder="BP1" step="0.1">
+                <input type="number" name="pauls" placeholder="Pauls">
+                <input type="text" name="rest" placeholder="Rest">
+                <input type="text" name="wt" placeholder="Wt">
+                <input type="text" name="complain" placeholder="Complain">
+                <input type="text" name="diagn" placeholder="Diagnosis">
+                <input type="text" name="plan" placeholder="Plan">
+                <input type="text" name="rmks" placeholder="Remarks">
+                <button type="submit">Add</button>
+            </form>
+        </div>
+        <div class="form-container">
+            <h2>Update Entry</h2>
+            <form id="update_form" method="POST" action="{{ url_for('index') }}">
+                <input type="hidden" name="action" value="update">
+                <input type="number" id="update_id" name="id" placeholder="ID" required>
+                <button type="button" onclick="fetchRecord()">🔍</button>
+                <input type="text" id="sn" name="sn" placeholder="SN">
+                <input type="text" id="date" name="date" placeholder="Date">
+                <input type="text" id="time" name="time" placeholder="Time">
+                <input type="text" id="am_number" name="am_number" placeholder="AM Number">
+                <input type="text" id="rank" name="rank" placeholder="Rank">
+                <input type="text" id="first_second_name" name="first_second_name" placeholder="First & Second Name">
+                <input type="text" id="unit" name="unit" placeholder="Unit">
+                <input type="text" id="phone_no" name="phone_no" placeholder="Phone No">
+                <input type="number" id="age" name="age" placeholder="Age">
+                <input type="number" id="temp" name="temp" placeholder="Temp" step="0.1">
+                <input type="number" id="bp" name="bp" placeholder="BP" step="0.1">
+                <input type="number" id="bp1" name="bp1" placeholder="BP1" step="0.1">
+                <input type="number" id="pauls" name="pauls" placeholder="Pauls">
+                <input type="text" id="rest" name="rest" placeholder="Rest">
+                <input type="text" id="wt" name="wt" placeholder="Wt">
+                <input type="text" id="complain" name="complain" placeholder="Complain">
+                <input type="text" id="diagn" name="diagn" placeholder="Diagnosis">
+                <input type="text" id="plan" name="plan" placeholder="Plan">
+                <input type="text" id="rmks" name="rmks" placeholder="Remarks">
+                <button type="button" onclick="submitUpdate()">✔</button>
+            </form>
+        </div>
+        <div class="form-container">
+            <h2>Delete Entry</h2>
+            <form method="POST" action="{{ url_for('index') }}">
+                <input type="hidden" name="action" value="delete">
+                <input type="number" name="id" placeholder="ID" required>
+                <button type="submit">Delete</button>
+            </form>
+        </div>
+    {% endif %}
 </body>
 </html>
