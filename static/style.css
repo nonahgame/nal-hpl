@@ -1,0 +1,52 @@
+/* static/style.css */
+body {
+    background-color: black;
+    color: white;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    color: blue;
+}
+
+.navbar-brand, .nav-link {
+    color: white !important;
+}
+
+.form-control {
+    background-color: #333;
+    color: white;
+    border: 1px solid #555;
+}
+
+.form-control::placeholder {
+    color: #aaa;
+}
+
+.table-dark {
+    background-color: #222;
+}
+
+.alert-success {
+    background-color: #28a745;
+    color: white;
+}
+
+.alert-danger {
+    background-color: #dc3545;
+    color: white;
+}
+
+.btn-primary {
+    background-color: #007bff;
+    border-color: #007bff;
+}
+
+.btn-success {
+    background-color: #28a745;
+    border-color: #28a745;
+}
+
+.btn-danger {
+    background-color: #dc3545;
+    border-color: #dc3545;
+}
