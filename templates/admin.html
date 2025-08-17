@@ -3,131 +3,98 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Panel - Open International Hospital</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f4f4f4; }
-        h1, h2 { text-align: center; color: #333; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; background-color: #fff; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        th { background-color: #f2f2f2; }
-        .form-container { margin: 20px 0; padding: 20px; background-color: #fff; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-        .form-container form { display: flex; flex-wrap: wrap; gap: 10px; }
-        .form-container input, .form-container select, .form-container button { padding: 8px; margin: 5px; border: 1px solid #ccc; border-radius: 4px; }
-        .form-container button { background-color: #28a745; color: #fff; cursor: pointer; }
-        .form-container button:hover { background-color: #218838; }
-        .form-container input[type="number"] { width: 100px; }
-        .form-container input[type="text"] { width: 150px; }
-        .flash-messages { margin-bottom: 20px; }
-        .flash-messages .error { color: red; }
-        .flash-messages .success { color: green; }
-        .links { text-align: center; margin-top: 20px; }
-        .links a { color: #007bff; text-decoration: none; }
-        .links a:hover { text-decoration: underline; }
-    </style>
+    <title>Admin Panel</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <h1>Admin Panel</h1>
-    <div class="flash-messages">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="{{ url_for('index') }}">Medical Records</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('index') }}">Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('search') }}">Search</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('logout') }}">Logout</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+    <div class="container mt-4">
+        <h1>Admin Panel</h1>
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
-                    <p class="{{ category }}">{{ message }}</p>
+                    <div class="alert alert-{{ 'success' if category == 'success' else 'danger' }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
                 {% endfor %}
             {% endif %}
         {% endwith %}
-    </div>
-    <p><a href="{{ url_for('index') }}">Back to Home</a> | <a href="{{ url_for('logout') }}">Logout</a></p>
-    <h2>Manage Entries</h2>
-    {% if df is not none and not df.empty %}
-        <table>
-            <tr>
-                {% for col in df.columns %}
-                    <th>{{ col.replace('_', ' ').title() }}</th>
-                {% endfor %}
-            </tr>
-            {% for _, row in df.iterrows() %}
-                <tr>
-                    {% for col in df.columns %}
-                        <td>{{ row[col] }}</td>
-                    {% endfor %}
-                </tr>
-            {% endfor %}
-        </table>
-    {% else %}
-        <p>No records found.</p>
-    {% endif %}
-    <div class="form-container">
-        <h2>Add Entry</h2>
-        <form method="POST" action="{{ url_for('admin') }}">
+        <h2>Add New Entry</h2>
+        <form method="POST" action="{{ url_for('admin') }}" class="mb-4">
             <input type="hidden" name="action" value="add">
-            <input type="text" name="sn" placeholder="SN">
-            <input type="text" name="date" placeholder="Date">
-            <input type="text" name="time" placeholder="Time">
-            <input type="text" name="am_number" placeholder="AM Number">
-            <input type="text" name="rank" placeholder="Rank">
-            <input type="text" name="first_second_name" placeholder="First & Second Name">
-            <input type="text" name="unit" placeholder="Unit">
-            <input type="text" name="phone_no" placeholder="Phone No">
-            <input type="number" name="age" placeholder="Age">
-            <input type="number" name="temp" placeholder="Temp" step="0.1">
-            <input type="number" name="bp" placeholder="BP" step="0.1">
-            <input type="number" name="bp1" placeholder="BP1" step="0.1">
-            <input type="number" name="pauls" placeholder="Pauls">
-            <input type="text" name="rest" placeholder="Rest">
-            <input type="text" name="wt" placeholder="Wt">
-            <input type="text" name="complain" placeholder="Complain">
-            <input type="text" name="diagn" placeholder="Diagnosis">
-            <input type="text" name="plan" placeholder="Plan">
-            <input type="text" name="rmks" placeholder="Remarks">
-            <button type="submit">Add</button>
+            <div class="row">
+                {% for field in ['sn', 'date', 'time', 'am_number', 'rank', 'first_second_name', 'unit', 'phone_no', 'age', 'temp', 'bp', 'bp1', 'pauls', 'rest', 'wt', 'complain', 'diagn', 'plan', 'rmks'] %}
+                <div class="col-md-4 mb-3">
+                    <label for="{{ field }}" class="form-label">{{ field.replace('_', ' ').title() }}</label>
+                    <input type="text" name="{{ field }}" id="{{ field }}" class="form-control">
+                </div>
+                {% endfor %}
+            </div>
+            <button type="submit" class="btn btn-success">Add Entry</button>
         </form>
-    </div>
-    <div class="form-container">
         <h2>Update Entry</h2>
-        <form method="POST" action="{{ url_for('admin') }}">
+        <form method="POST" action="{{ url_for('admin') }}" class="mb-4">
             <input type="hidden" name="action" value="update">
-            <input type="number" name="id" placeholder="ID" required>
-            <input type="text" name="sn" placeholder="SN">
-            <input type="text" name="date" placeholder="Date">
-            <input type="text" name="time" placeholder="Time">
-            <input type="text" name="am_number" placeholder="AM Number">
-            <input type="text" name="rank" placeholder="Rank">
-            <input type="text" name="first_second_name" placeholder="First & Second Name">
-            <input type="text" name="unit" placeholder="Unit">
-            <input type="text" name="phone_no" placeholder="Phone No">
-            <input type="number" name="age" placeholder="Age">
-            <input type="number" name="temp" placeholder="Temp" step="0.1">
-            <input type="number" name="bp" placeholder="BP" step="0.1">
-            <input type="number" name="bp1" placeholder="BP1" step="0.1">
-            <input type="number" name="pauls" placeholder="Pauls">
-            <input type="text" name="rest" placeholder="Rest">
-            <input type="text" name="wt" placeholder="Wt">
-            <input type="text" name="complain" placeholder="Complain">
-            <input type="text" name="diagn" placeholder="Diagnosis">
-            <input type="text" name="plan" placeholder="Plan">
-            <input type="text" name="rmks" placeholder="Remarks">
-            <button type="submit">Update</button>
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <label for="id" class="form-label">ID</label>
+                    <input type="text" name="id" id="id" class="form-control" required>
+                </div>
+                {% for field in ['sn', 'date', 'time', 'am_number', 'rank', 'first_second_name', 'unit', 'phone_no', 'age', 'temp', 'bp', 'bp1', 'pauls', 'rest', 'wt', 'complain', 'diagn', 'plan', 'rmks'] %}
+                <div class="col-md-4 mb-3">
+                    <label for="{{ field }}" class="form-label">{{ field.replace('_', ' ').title() }}</label>
+                    <input type="text" name="{{ field }}" id="{{ field }}" class="form-control">
+                </div>
+                {% endfor %}
+            </div>
+            <button type="submit" class="btn btn-success">Update Entry</button>
         </form>
-    </div>
-    <div class="form-container">
         <h2>Delete Entry</h2>
-        <form method="POST" action="{{ url_for('admin') }}">
+        <form method="POST" action="{{ url_for('admin') }}" class="mb-4">
             <input type="hidden" name="action" value="delete">
-            <input type="number" name="id" placeholder="ID" required>
-            <button type="submit">Delete</button>
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <label for="id" class="form-label">ID</label>
+                    <input type="text" name="id" id="id" class="form-control" required>
+                </div>
+            </div>
+            <button type="submit" class="btn btn-danger">Delete Entry</button>
         </form>
-    </div>
-    <div class="form-container">
         <h2>Manage Users</h2>
-        <table>
-            <tr>
-                <th>ID</th>
-                <th>Username</th>
-                <th>Email</th>
-                <th>Edit Permission</th>
-                <th>Action</th>
-            </tr>
-            {% for user in users %}
+        <table class="table table-dark table-bordered">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Username</th>
+                    <th>Email</th>
+                    <th>Edit Permission</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in users %}
                 <tr>
                     <td>{{ user.id }}</td>
                     <td>{{ user.username }}</td>
@@ -136,31 +103,54 @@
                         <form method="POST" action="{{ url_for('admin') }}">
                             <input type="hidden" name="action" value="manage_user">
                             <input type="hidden" name="user_id" value="{{ user.id }}">
-                            <select name="can_edit">
-                                <option value="0" {% if not user.can_edit %}selected{% endif %}>No</option>
-                                <option value="1" {% if user.can_edit %}selected{% endif %}>Yes</option>
-                            </select>
-                            <button type="submit">Update</button>
+                            <input type="checkbox" name="can_edit" {% if user.id in edit_permissions|map(attribute='user_id')|list %}checked{% endif %}>
+                            <button type="submit" class="btn btn-success btn-sm">Update</button>
                         </form>
                     </td>
                     <td>
                         <form method="POST" action="{{ url_for('admin') }}">
                             <input type="hidden" name="action" value="delete_user">
                             <input type="hidden" name="user_id" value="{{ user.id }}">
-                            <button type="submit">Delete</button>
+                            <button type="submit" class="btn btn-danger btn-sm">Delete</button>
                         </form>
                     </td>
                 </tr>
-            {% endfor %}
+                {% endfor %}
+            </tbody>
         </table>
-    </div>
-    <div class="form-container">
         <h2>Change Admin Passphrase</h2>
-        <form method="POST" action="{{ url_for('admin') }}">
+        <form method="POST" action="{{ url_for('admin') }}" class="mb-4">
             <input type="hidden" name="action" value="change_passphrase">
-            <input type="text" name="new_passphrase" placeholder="New Passphrase" required>
-            <button type="submit">Change</button>
+            <div class="mb-3">
+                <label for="new_passphrase" class="form-label">New Passphrase</label>
+                <input type="text" name="new_passphrase" id="new_passphrase" class="form-control" required>
+            </div>
+            <button type="submit" class="btn btn-primary">Change Passphrase</button>
         </form>
+        {% if df is not none and not df.empty %}
+        <h2>Records</h2>
+        <div class="table-responsive">
+            <table class="table table-dark table-bordered">
+                <thead>
+                    <tr>
+                        {% for column in df.columns %}
+                        <th>{{ column.replace('_', ' ').title() }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for _, row in df.iterrows() %}
+                    <tr>
+                        {% for column in df.columns %}
+                        <td>{{ row[column] }}</td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
     </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
