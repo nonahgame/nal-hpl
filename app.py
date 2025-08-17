@@ -1,3 +1,4 @@
+# app.py
 import os
 from dotenv import load_dotenv
 import pandas as pd
@@ -55,11 +56,11 @@ ADMIN_PASSPHRASE = os.getenv("ADMIN_PASSPHRASE", "ADMIN_PASSPHRASE")
 
 # Initialize Telegram bot
 try:
-    bot = telegram.Bot(token=BOT_TOKEN)
+    application = telegram.Application.builder().token(BOT_TOKEN).build()
     logger.info("Telegram bot initialized successfully")
 except Exception as e:
     logger.error(f"Failed to initialize Telegram bot: {str(e)}")
-    bot = None
+    application = None
 
 # GitHub file handling
 def upload_to_github(file_path, file_name):
@@ -212,11 +213,11 @@ def get_db_connection():
 
 # Send Telegram notification
 async def send_telegram_message(message):
-    if bot is None:
+    if application is None:
         logger.warning("Telegram bot not initialized, skipping notification")
         return
     try:
-        await bot.send_message(chat_id=CHAT_ID, text=message)
+        await application.bot.send_message(chat_id=CHAT_ID, text=message)
         logger.info(f"Telegram message sent: {message}")
     except Exception as e:
         logger.error(f"Failed to send Telegram message: {str(e)}")
@@ -626,5 +627,3 @@ atexit.register(cleanup)
 if __name__ == '__main__':
     init_db()
     app.run(host='0.0.0.0', port=int(os.getenv("PORT", 5000)))
-
-
