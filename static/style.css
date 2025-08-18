@@ -8,6 +8,14 @@ h1, h2, h3, h4, h5, h6 {
     color: blue;
 }
 
+th {
+    color: blue !important;
+}
+
+td {
+    color: black !important;
+}
+
 .navbar-brand, .nav-link {
     color: white !important;
 }
@@ -22,8 +30,8 @@ h1, h2, h3, h4, h5, h6 {
     color: #aaa;
 }
 
-.table-dark {
-    background-color: #222;
+.table-light {
+    background-color: #f8f9fa;
 }
 
 .alert-success {
@@ -49,4 +57,13 @@ h1, h2, h3, h4, h5, h6 {
 .btn-danger {
     background-color: #dc3545;
     border-color: #dc3545;
+}
+
+.btn-secondary {
+    background-color: #6c757d;
+    border-color: #6c757d;
+}
+
+#load-record, #update-form .btn-success, #clear-form {
+    margin-right: 20px;
 }
