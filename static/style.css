@@ -13,7 +13,31 @@ th {
 }
 
 td {
-    color: black !important;
+    color: blue !important;
+}
+
+.temp-high {
+    color: red !important;
+}
+
+.temp-normal {
+    color: green !important;
+}
+
+.bp-high {
+    color: red !important;
+}
+
+.bp-normal {
+    color: green !important;
+}
+
+.bp1-high {
+    color: red !important;
+}
+
+.bp1-normal {
+    color: green !important;
 }
 
 .navbar-brand, .nav-link {
