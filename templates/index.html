@@ -4,13 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Medical Records</title>
-    <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Custom CSS with cache-busting -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=1">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=2">
 </head>
 <body>
-    <!-- Navigation Bar -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container">
             <a class="navbar-brand" href="{{ url_for('index') }}">Medical Records</a>
@@ -35,11 +32,9 @@
         </div>
     </nav>
 
-    <!-- Main Content -->
     <div class="container mt-4">
         <h1>Medical Records</h1>
 
-        <!-- Flash Messages -->
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
@@ -51,7 +46,6 @@
             {% endif %}
         {% endwith %}
 
-        <!-- Search Form -->
         <form method="POST" action="{{ url_for('index') }}" class="mb-4">
             <div class="input-group">
                 <input type="text" name="search_query" class="form-control" placeholder="Search by SN, Name, AM Number, or Complaint" value="{{ search_query or '' }}">
@@ -59,10 +53,9 @@
             </div>
         </form>
 
-        <!-- Data Table -->
         {% if df is not none and not df.empty %}
         <div class="table-responsive">
-            <table class="table table-dark table-bordered">
+            <table class="table table-light table-bordered">
                 <thead>
                     <tr>
                         {% for column in df.columns %}
@@ -81,8 +74,6 @@
                 </tbody>
             </table>
         </div>
-
-        <!-- Pagination -->
         <div class="d-flex justify-content-between">
             {% if has_prev %}
             <a href="{{ url_for('index', cursor=prev_cursor, direction='prev', search_query=search_query) }}" class="btn btn-primary">Previous</a>
@@ -97,7 +88,6 @@
         <p>No records found.</p>
         {% endif %}
 
-        <!-- Add/Update/Delete Forms (only for users with edit permissions) -->
         {% if can_edit %}
         <h2>Add New Entry</h2>
         <form method="POST" action="{{ url_for('index') }}" class="mb-4">
@@ -119,11 +109,15 @@
             <div class="row">
                 <div class="col-md-4 mb-3">
                     <label for="update_id" class="form-label">ID</label>
-                    <div class="input-group">
-                        <input type="text" name="id" id="update_id" class="form-control" required>
-                        <button type="button" id="fetch-record" class="btn btn-primary">🔍 Fetch</button>
-                    </div>
+                    <input type="text" name="id" id="update_id" class="form-control" required>
                 </div>
+            </div>
+            <div class="mb-3">
+                <button type="button" id="load-record" class="btn btn-primary">Load</button>
+                <button type="submit" class="btn btn-success">Update</button>
+                <button type="button" id="clear-form" class="btn btn-secondary">Clear Form</button>
+            </div>
+            <div class="row">
                 {% for field in ['sn', 'date', 'time', 'am_number', 'rank', 'first_second_name', 'unit', 'phone_no', 'age', 'temp', 'bp', 'bp1', 'pauls', 'rest', 'wt', 'complain', 'diagn', 'plan', 'rmks'] %}
                 <div class="col-md-4 mb-3">
                     <label for="update_{{ field }}" class="form-label">{{ field.replace('_', ' ').title() }}</label>
@@ -131,8 +125,6 @@
                 </div>
                 {% endfor %}
             </div>
-            <button type="submit" class="btn btn-success">✔ Update</button>
-            <button type="button" id="clear-form" class="btn btn-secondary">Clear Form</button>
         </form>
 
         <h2>Delete Entry</h2>
@@ -149,38 +141,30 @@
         {% endif %}
     </div>
 
-    <!-- Bootstrap JS and Popper.js -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <!-- Custom JavaScript for Dynamic Update -->
     <script>
-        // Fetch record by ID
-        document.getElementById('fetch-record').addEventListener('click', async () => {
+        // Load record by ID
+        document.getElementById('load-record').addEventListener('click', async () => {
             const idInput = document.getElementById('update_id');
             const id = idInput.value.trim();
             if (!id) {
                 alert('Please enter an ID');
                 return;
             }
-
             try {
                 const response = await fetch(`/get_record/${encodeURIComponent(id)}`, {
                     method: 'GET',
                     headers: { 'Accept': 'application/json' }
                 });
                 const data = await response.json();
-
                 if (response.ok) {
-                    // Populate form fields
                     const fields = ['sn', 'date', 'time', 'am_number', 'rank', 'first_second_name', 'unit', 'phone_no', 'age', 'temp', 'bp', 'bp1', 'pauls', 'rest', 'wt', 'complain', 'diagn', 'plan', 'rmks'];
                     fields.forEach(field => {
                         const input = document.getElementById(`update_${field}`);
-                        if (input) {
-                            input.value = data[field] || '';
-                        }
+                        if (input) input.value = data[field] || '';
                     });
-                    console.log(`Fetched record ID: ${id}`);
+                    console.log(`Loaded record ID: ${id}`);
                 } else {
-                    // Clear form (except ID) and show error
                     const fields = ['sn', 'date', 'time', 'am_number', 'rank', 'first_second_name', 'unit', 'phone_no', 'age', 'temp', 'bp', 'bp1', 'pauls', 'rest', 'wt', 'complain', 'diagn', 'plan', 'rmks'];
                     fields.forEach(field => {
                         const input = document.getElementById(`update_${field}`);
@@ -190,8 +174,8 @@
                     console.log(`Record ID ${id} not found`);
                 }
             } catch (error) {
-                console.error('Error fetching record:', error);
-                alert('Error fetching record. Please check the ID and try again.');
+                console.error('Error loading record:', error);
+                alert('Error loading record. Please check the ID and try again.');
             }
         });
 
@@ -200,16 +184,14 @@
             event.preventDefault();
             const form = event.target;
             const formData = new FormData(form);
-
             try {
                 const response = await fetch(form.action, {
                     method: 'POST',
                     body: formData
                 });
-
                 if (response.ok) {
                     form.reset();
-                    window.location.reload(); // Reload to show flash message
+                    window.location.reload();
                     console.log('Update successful');
                 } else {
                     const data = await response.json();
@@ -224,8 +206,7 @@
 
         // Clear form
         document.getElementById('clear-form').addEventListener('click', () => {
-            const form = document.getElementById('update-form');
-            form.reset();
+            document.getElementById('update-form').reset();
             console.log('Update form cleared');
         });
     </script>
