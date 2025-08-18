@@ -1,4 +1,3 @@
-# app.py (unchanged from previous response)
 import os
 from dotenv import load_dotenv
 import pandas as pd
@@ -138,12 +137,16 @@ def download_from_github(file_name, destination_path):
 # Initialize database
 def init_db():
     try:
+        # Ensure data directory exists
+        os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+        
         if download_from_github("gwoza-df-amb.db", DB_PATH):
             logger.info("Database downloaded from GitHub")
         else:
             logger.info("No database found on GitHub, creating new one")
 
         conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
         c = conn.cursor()
 
         # Create users table
@@ -201,6 +204,14 @@ def init_db():
         except sqlite3.OperationalError:
             logger.info("wt column already exists")
 
+        # Ensure an admin user exists
+        c.execute("SELECT * FROM users WHERE is_admin = 1")
+        if not c.fetchone():
+            default_admin_password = generate_password_hash("admin123")
+            c.execute("INSERT INTO users (first_name, second_name, email, phone, password, username, is_admin) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                     ("Admin", "User", "admin@example.com", "0000000000", default_admin_password, "admin", 1))
+            logger.info("Created default admin user")
+        
         conn.commit()
         conn.close()
         logger.info("Database initialized successfully")
@@ -332,7 +343,7 @@ def index():
                 id = request.form['id']
                 c.execute("SELECT * FROM todo WHERE id = ?", (id,))
                 if not c.fetchone():
-                    flash('Entry ID does not exist', 'error')
+                    flash('Entry ID does not exist', 'danger')
                 else:
                     fields = ['sn', 'date', 'time', 'am_number', 'rank', 'first_second_name', 'unit', 'phone_no', 'age', 'temp', 'bp', 'bp1', 'pauls', 'rest', 'wt', 'complain', 'diagn', 'plan', 'rmks']
                     values = [request.form.get(field, '') for field in fields]
@@ -348,7 +359,7 @@ def index():
                 id = request.form['id']
                 c.execute("SELECT * FROM todo WHERE id = ?", (id,))
                 if not c.fetchone():
-                    flash('Entry ID does not exist', 'error')
+                    flash('Entry ID does not exist', 'danger')
                 else:
                     c.execute("DELETE FROM todo WHERE id = ?", (id,))
                     conn.commit()
@@ -363,7 +374,8 @@ def index():
 
     except Exception as e:
         logger.error(f"Error in index route: {str(e)}\n{traceback.format_exc()}")
-        return "Internal Server Error: Check logs for details", 500
+        flash(f"Internal Server Error: {str(e)}", 'danger')
+        return redirect(url_for('login'))
 
 # Admin route
 @app.route('/admin', methods=['GET', 'POST'])
@@ -371,15 +383,12 @@ def admin():
     global ADMIN_PASSPHRASE
     try:
         if 'user_id' not in session:
-            if request.method == 'POST':
-                logger.info("User not logged in, cannot process admin login")
-                flash('Please log in first', 'error')
-                return redirect(url_for('login'))
-            logger.info("User not logged in, rendering admin login page")
-            return render_template('admin_login.html')
+            logger.info("User not logged in, redirecting to login")
+            flash('Please log in first', 'danger')
+            return redirect(url_for('login'))
 
         if not session.get('is_admin'):
-            if request.method == 'POST':
+            if request.method == 'POST' and request.form.get('action') == 'admin_login':
                 passphrase = request.form.get('passphrase')
                 logger.info(f"Admin passphrase attempt by user {session['username']}")
                 if not ADMIN_PASSPHRASE:
@@ -398,8 +407,9 @@ def admin():
                     return redirect(url_for('admin'))
                 else:
                     logger.warning(f"Invalid admin passphrase attempt by user {session['username']}")
-                    flash('Invalid passphrase', 'error')
-                    return redirect(url_for('login'))
+                    flash('Invalid passphrase', 'danger')
+                    return render_template('admin_login.html')
+            logger.info("Non-admin user, rendering admin login page")
             return render_template('admin_login.html')
 
         conn = get_db_connection()
@@ -408,85 +418,100 @@ def admin():
         if request.method == 'POST':
             action = request.form.get('action')
             logger.info(f"Processing admin action: {action}")
-            if action == 'add':
-                fields = ['sn', 'date', 'time', 'am_number', 'rank', 'first_second_name', 'unit', 'phone_no', 'age', 'temp', 'bp', 'bp1', 'pauls', 'rest', 'wt', 'complain', 'diagn', 'plan', 'rmks']
-                values = [request.form.get(field, '') for field in fields]
-                c.execute(f'''INSERT INTO todo ({', '.join(fields)})
-                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''', values)
-                conn.commit()
-                upload_to_github(DB_PATH, "gwoza-df-amb.db")
-                sync_send_telegram_message(f"Admin added entry: {values[0] or 'No SN'}")
-                flash('Entry added successfully!', 'success')
-
-            elif action == 'update':
-                id = request.form['id']
-                c.execute("SELECT * FROM todo WHERE id = ?", (id,))
-                if not c.fetchone():
-                    flash('Entry ID does not exist', 'error')
-                else:
+            try:
+                if action == 'add':
                     fields = ['sn', 'date', 'time', 'am_number', 'rank', 'first_second_name', 'unit', 'phone_no', 'age', 'temp', 'bp', 'bp1', 'pauls', 'rest', 'wt', 'complain', 'diagn', 'plan', 'rmks']
                     values = [request.form.get(field, '') for field in fields]
-                    values.append(id)
-                    c.execute(f'''UPDATE todo SET {', '.join(f'{f} = ?' for f in fields)}
-                                 WHERE id = ?''', values)
+                    c.execute(f'''INSERT INTO todo ({', '.join(fields)})
+                                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''', values)
                     conn.commit()
                     upload_to_github(DB_PATH, "gwoza-df-amb.db")
-                    sync_send_telegram_message(f"Admin updated entry ID: {id}")
-                    flash('Entry updated successfully!', 'success')
+                    sync_send_telegram_message(f"Admin added entry: {values[0] or 'No SN'}")
+                    flash('Entry added successfully!', 'success')
 
-            elif action == 'delete':
-                id = request.form['id']
-                c.execute("SELECT * FROM todo WHERE id = ?", (id,))
-                if not c.fetchone():
-                    flash('Entry ID does not exist', 'error')
-                else:
-                    c.execute("DELETE FROM todo WHERE id = ?", (id,))
+                elif action == 'update':
+                    id = request.form['id']
+                    c.execute("SELECT * FROM todo WHERE id = ?", (id,))
+                    record = c.fetchone()
+                    if not record:
+                        logger.warning(f"Update failed: Record ID {id} not found")
+                        flash('Entry ID does not exist', 'danger')
+                    else:
+                        fields = ['sn', 'date', 'time', 'am_number', 'rank', 'first_second_name', 'unit', 'phone_no', 'age', 'temp', 'bp', 'bp1', 'pauls', 'rest', 'wt', 'complain', 'diagn', 'plan', 'rmks']
+                        values = [request.form.get(field, '') for field in fields]
+                        values.append(id)
+                        c.execute(f'''UPDATE todo SET {', '.join(f'{f} = ?' for f in fields)}
+                                     WHERE id = ?''', values)
+                        conn.commit()
+                        upload_to_github(DB_PATH, "gwoza-df-amb.db")
+                        sync_send_telegram_message(f"Admin updated entry ID: {id}")
+                        flash('Entry updated successfully!', 'success')
+
+                elif action == 'delete':
+                    id = request.form['id']
+                    c.execute("SELECT * FROM todo WHERE id = ?", (id,))
+                    if not c.fetchone():
+                        logger.warning(f"Delete failed: Record ID {id} not found")
+                        flash('Entry ID does not exist', 'danger')
+                    else:
+                        c.execute("DELETE FROM todo WHERE id = ?", (id,))
+                        conn.commit()
+                        upload_to_github(DB_PATH, "gwoza-df-amb.db")
+                        sync_send_telegram_message(f"Admin deleted entry ID: {id}")
+                        flash('Entry deleted successfully!', 'success')
+
+                elif action == 'manage_user':
+                    user_id = request.form['user_id']
+                    can_edit = 1 if request.form.get('can_edit') else 0
+                    c.execute("INSERT OR REPLACE INTO edit_permissions (user_id, can_edit) VALUES (?, ?)", (user_id, can_edit))
                     conn.commit()
                     upload_to_github(DB_PATH, "gwoza-df-amb.db")
-                    sync_send_telegram_message(f"Admin deleted entry ID: {id}")
-                    flash('Entry deleted successfully!', 'success')
+                    sync_send_telegram_message(f"Admin updated edit permissions for user ID: {user_id}")
+                    flash('User permissions updated successfully!', 'success')
 
-            elif action == 'manage_user':
-                user_id = request.form['user_id']
-                can_edit = 1 if request.form.get('can_edit') else 0
-                c.execute("INSERT OR REPLACE INTO edit_permissions (user_id, can_edit) VALUES (?, ?)", (user_id, can_edit))
-                conn.commit()
-                upload_to_github(DB_PATH, "gwoza-df-amb.db")
-                sync_send_telegram_message(f"Admin updated edit permissions for user ID: {user_id}")
-                flash('User permissions updated successfully!', 'success')
+                elif action == 'delete_user':
+                    user_id = request.form['user_id']
+                    c.execute("DELETE FROM users WHERE id = ?", (user_id,))
+                    c.execute("DELETE FROM edit_permissions WHERE user_id = ?", (user_id,))
+                    conn.commit()
+                    upload_to_github(DB_PATH, "gwoza-df-amb.db")
+                    sync_send_telegram_message(f"Admin deleted user ID: {user_id}")
+                    flash('User deleted successfully!', 'success')
 
-            elif action == 'delete_user':
-                user_id = request.form['user_id']
-                c.execute("DELETE FROM users WHERE id = ?", (user_id,))
-                c.execute("DELETE FROM edit_permissions WHERE user_id = ?", (user_id,))
-                conn.commit()
-                upload_to_github(DB_PATH, "gwoza-df-amb.db")
-                sync_send_telegram_message(f"Admin deleted user ID: {user_id}")
-                flash('User deleted successfully!', 'success')
+                elif action == 'change_passphrase':
+                    new_passphrase = request.form['new_passphrase']
+                    if new_passphrase:
+                        ADMIN_PASSPHRASE = new_passphrase
+                        logger.info(f"Admin passphrase changed by user {session['username']}")
+                        sync_send_telegram_message(f"Admin changed passphrase by user {session['username']}")
+                        flash('Passphrase changed successfully!', 'success')
+                    else:
+                        logger.warning(f"Invalid passphrase change attempt by user {session['username']}: empty passphrase")
+                        flash('New passphrase cannot be empty', 'danger')
 
-            elif action == 'change_passphrase':
-                new_passphrase = request.form['new_passphrase']
-                if new_passphrase:
-                    ADMIN_PASSPHRASE = new_passphrase
-                    logger.info(f"Admin passphrase changed by user {session['username']}")
-                    sync_send_telegram_message(f"Admin changed passphrase by user {session['username']}")
-                    flash('Passphrase changed successfully!', 'success')
-                else:
-                    logger.warning(f"Invalid passphrase change attempt by user {session['username']}: empty passphrase")
-                    flash('New passphrase cannot be empty', 'error')
+            except Exception as e:
+                logger.error(f"Admin action error: {str(e)}\n{traceback.format_exc()}")
+                flash(f"Error processing action: {str(e)}", 'danger')
 
-        c.execute("SELECT * FROM users")
-        users = c.fetchall()
-        columns = 'id, sn, date, time, am_number, rank, first_second_name, unit, phone_no, age, temp, bp, bp1, pauls, rest, wt, complain, diagn, plan, rmks'
-        c.execute(f"SELECT {columns} FROM todo")
-        rows = c.fetchall()
-        df = pd.DataFrame([dict(row) for row in rows])
+        try:
+            c.execute("SELECT * FROM users")
+            users = c.fetchall()
+            c.execute("SELECT id, sn, date, time, am_number, rank, first_second_name, unit, phone_no, age, temp, bp, bp1, pauls, rest, wt, complain, diagn, plan, rmks FROM todo")
+            rows = c.fetchall()
+            df = pd.DataFrame([dict(row) for row in rows])
+        except Exception as e:
+            logger.error(f"Admin data fetch error: {str(e)}\n{traceback.format_exc()}")
+            flash(f"Database error: {str(e)}", 'danger')
+            conn.close()
+            return redirect(url_for('index'))
+
         conn.close()
         return render_template('admin.html', df=df, users=users)
 
     except Exception as e:
         logger.error(f"Error in admin route: {str(e)}\n{traceback.format_exc()}")
-        return "Internal Server Error: Check logs for details", 500
+        flash(f"Internal Server Error: {str(e)}", 'danger')
+        return redirect(url_for('index'))
 
 # Login route
 @app.route('/login', methods=['GET', 'POST'])
@@ -509,13 +534,14 @@ def login():
                 sync_send_telegram_message(f"User {user['username']} logged in")
                 logger.info(f"User {user['username']} logged in successfully")
                 return redirect(url_for('index'))
-            flash('Invalid email or password', 'error')
+            flash('Invalid email or password', 'danger')
             logger.warning(f"Failed login attempt for email: {email}")
         return render_template('login.html')
 
     except Exception as e:
         logger.error(f"Error in login route: {str(e)}\n{traceback.format_exc()}")
-        return "Internal Server Error: Check logs for details", 500
+        flash(f"Internal Server Error: {str(e)}", 'danger')
+        return redirect(url_for('login'))
 
 # Register route
 @app.route('/register', methods=['GET', 'POST'])
@@ -546,13 +572,14 @@ def register():
     except sqlite3.OperationalError as e:
         logger.error(f"Database error in register route: {str(e)}\n{traceback.format_exc()}")
         if "no such table" in str(e):
-            flash('Database error: Users table not found. Please contact the administrator.', 'error')
+            flash('Database error: Users table not found. Please contact the administrator.', 'danger')
         else:
-            flash('Database error occurred. Please try again.', 'error')
+            flash('Database error occurred. Please try again.', 'danger')
         return render_template('register.html')
     except Exception as e:
         logger.error(f"Error in register route: {str(e)}\n{traceback.format_exc()}")
-        return "Internal Server Error: Check logs for details", 500
+        flash(f"Internal Server Error: {str(e)}", 'danger')
+        return redirect(url_for('login'))
 
 # Recover route
 @app.route('/recover', methods=['GET', 'POST'])
@@ -575,14 +602,15 @@ def recover():
                 logger.info(f"Password reset successful for user: {user['username']}")
                 conn.close()
                 return redirect(url_for('login'))
-            flash('Email not found', 'error')
+            flash('Email not found', 'danger')
             logger.warning(f"Password recovery failed: Email {email} not found")
             conn.close()
         return render_template('recover.html')
 
     except Exception as e:
         logger.error(f"Error in recover route: {str(e)}\n{traceback.format_exc()}")
-        return "Internal Server Error: Check logs for details", 500
+        flash(f"Internal Server Error: {str(e)}", 'danger')
+        return redirect(url_for('login'))
 
 # Logout route
 @app.route('/logout')
@@ -597,7 +625,8 @@ def logout():
 
     except Exception as e:
         logger.error(f"Error in logout route: {str(e)}\n{traceback.format_exc()}")
-        return "Internal Server Error: Check logs for details", 500
+        flash(f"Internal Server Error: {str(e)}", 'danger')
+        return redirect(url_for('login'))
 
 # Search route
 @app.route('/search', methods=['GET', 'POST'])
@@ -623,7 +652,8 @@ def search():
 
     except Exception as e:
         logger.error(f"Error in search route: {str(e)}\n{traceback.format_exc()}")
-        return "Internal Server Error: Check logs for details", 500
+        flash(f"Internal Server Error: {str(e)}", 'danger')
+        return redirect(url_for('index'))
 
 # Cleanup on shutdown
 def cleanup():
@@ -637,4 +667,3 @@ atexit.register(cleanup)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.getenv("PORT", 5000)))
-
