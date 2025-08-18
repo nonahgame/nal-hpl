@@ -41,8 +41,8 @@ BOT_TOKEN = os.getenv("BOT_TOKEN", "your-telegram-bot-token")
 CHAT_ID = os.getenv("CHAT_ID", "your-telegram-chat-id")
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "your-github-token")
 GITHUB_REPO = os.getenv("GITHUB_REPO", "your-username/your-repo")
-GITHUB_PATH = os.getenv("GITHUB_PATH", "gwoza-df-amb.db")
-DB_PATH = "gwoza-df-amb.db"
+GITHUB_PATH = os.getenv("GITHUB_PATH", "data/gwoza-df-amb.db")
+DB_PATH = "data/gwoza-df-amb.db"
 
 # GitHub API setup
 GITHUB_API_URL = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{GITHUB_PATH}"
@@ -637,3 +637,4 @@ atexit.register(cleanup)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.getenv("PORT", 5000)))
+
