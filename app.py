@@ -456,6 +456,8 @@ def admin():
     try:
         if 'user_id' not in session or not session.get('is_admin'):
             logger.info("Non-admin user attempted to access admin panel")
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return jsonify({'status': 'error', 'error': 'Unauthorized access'}), 403
             flash('You do not have permission to access this page.', 'danger')
             return redirect(url_for('index'))
 
