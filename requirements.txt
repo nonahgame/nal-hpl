@@ -2,7 +2,9 @@ flask
 python-dotenv
 pandas
 werkzeug
-python-telegram-bot==21.4
+python-telegram-bot>=20.0
+#python-telegram-bot==21.4
 requests
 
 gunicorn
+
