@@ -348,16 +348,22 @@ def index():
                     conn.commit()
                     upload_to_github(DB_PATH, "gwoza-df-amb.db")
                     sync_send_telegram_message(f"New entry added: {values[0] or 'No SN'} by user {session['username']}")
+                    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                        conn.close()
+                        return jsonify({'status': 'success', 'message': 'Entry added successfully'})
                     flash('Entry added successfully!', 'success')
 
                 elif action == 'update':
-                    id = request.form['id']
+                    id = request.form.get('id')
                     try:
-                        id = int(id)  # Ensure ID is an integer
+                        id = int(id)
                         c.execute("SELECT * FROM todo WHERE id = ?", (id,))
                         if not c.fetchone():
-                            flash('Entry ID does not exist', 'danger')
                             logger.warning(f"Update failed: Record ID {id} not found")
+                            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                                conn.close()
+                                return jsonify({'status': 'error', 'error': 'Record ID does not exist'}), 404
+                            flash('Entry ID does not exist', 'danger')
                         else:
                             fields = ['sn', 'date', 'time', 'am_number', 'rank', 'first_second_name', 'unit', 'phone_no', 'age', 'temp', 'bp', 'bp1', 'pauls', 'rest', 'wt', 'complain', 'diagn', 'plan', 'rmks']
                             values = []
@@ -375,38 +381,62 @@ def index():
                             conn.commit()
                             upload_to_github(DB_PATH, "gwoza-df-amb.db")
                             sync_send_telegram_message(f"Entry ID {id} updated by user {session['username']}")
+                            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                                conn.close()
+                                return jsonify({'status': 'success', 'message': 'Entry updated successfully'})
                             flash('Entry updated successfully!', 'success')
                     except ValueError as e:
                         logger.error(f"Update error: Invalid ID {id}: {str(e)}")
-                        flash(f"Invalid ID: {str(e)}", 'danger')
+                        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                            conn.close()
+                            return jsonify({'status': 'error', 'error': f'Invalid ID: {str(e)}'}), 400
+                        flash(f'Invalid ID: {str(e)}', 'danger')
                     except Exception as e:
                         logger.error(f"Update error for ID {id}: {str(e)}\n{traceback.format_exc()}")
-                        flash(f"Error updating record: {str(e)}", 'danger')
+                        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                            conn.close()
+                            return jsonify({'status': 'error', 'error': f'Error updating record: {str(e)}'}), 500
+                        flash(f'Error updating record: {str(e)}', 'danger')
 
                 elif action == 'delete':
-                    id = request.form['id']
+                    id = request.form.get('id')
                     try:
                         id = int(id)
                         c.execute("SELECT * FROM todo WHERE id = ?", (id,))
                         if not c.fetchone():
-                            flash('Entry ID does not exist', 'danger')
                             logger.warning(f"Delete failed: Record ID {id} not found")
+                            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                                conn.close()
+                                return jsonify({'status': 'error', 'error': 'Record ID does not exist'}), 404
+                            flash('Entry ID does not exist', 'danger')
                         else:
                             c.execute("DELETE FROM todo WHERE id = ?", (id,))
                             conn.commit()
                             upload_to_github(DB_PATH, "gwoza-df-amb.db")
                             sync_send_telegram_message(f"Entry ID {id} deleted by user {session['username']}")
+                            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                                conn.close()
+                                return jsonify({'status': 'success', 'message': 'Entry deleted successfully'})
                             flash('Entry deleted successfully!', 'success')
                     except ValueError:
-                        flash('Invalid ID', 'danger')
                         logger.warning(f"Delete failed: Invalid ID {id}")
+                        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                            conn.close()
+                            return jsonify({'status': 'error', 'error': 'Invalid ID'}), 400
+                        flash('Invalid ID', 'danger')
                     except Exception as e:
                         logger.error(f"Delete error for ID {id}: {str(e)}\n{traceback.format_exc()}")
-                        flash(f"Error deleting record: {str(e)}", 'danger')
+                        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                            conn.close()
+                            return jsonify({'status': 'error', 'error': f'Error deleting record: {str(e)}'}), 500
+                        flash(f'Error deleting record: {str(e)}', 'danger')
 
             except Exception as e:
                 logger.error(f"Action error: {str(e)}\n{traceback.format_exc()}")
-                flash(f"Error processing action: {str(e)}", 'danger')
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                    conn.close()
+                    return jsonify({'status': 'error', 'error': f'Error processing action: {str(e)}'}), 500
+                flash(f'Error processing action: {str(e)}', 'danger')
 
         conn.close()
         return render_template('index.html', df=df, has_next=has_next, has_prev=has_prev,
@@ -415,7 +445,9 @@ def index():
 
     except Exception as e:
         logger.error(f"Error in index route: {str(e)}\n{traceback.format_exc()}")
-        flash(f"Internal Server Error: {str(e)}", 'danger')
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({'status': 'error', 'error': f'Internal Server Error: {str(e)}'}), 500
+        flash(f'Internal Server Error: {str(e)}', 'danger')
         return redirect(url_for('login'))
 
 # Admin route
