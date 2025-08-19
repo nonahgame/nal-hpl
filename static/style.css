@@ -1,0 +1,104 @@
+/* static/style.css */
+body {
+    background-color: black;
+    color: white;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    color: blue;
+}
+
+th {
+    color: blue !important;
+}
+
+td {
+    color: blue !important;
+}
+
+.temp-high {
+    color: red !important;
+}
+
+.temp-normal {
+    color: green !important;
+}
+
+.bp-high {
+    color: red !important;
+}
+
+.bp-normal {
+    color: green !important;
+}
+
+.bp1-high {
+    color: red !important;
+}
+
+.bp1-normal {
+    color: green !important;
+}
+
+.navbar-brand, .nav-link {
+    color: white !important;
+}
+
+.form-control {
+    background-color: #333;
+    color: white;
+    border: 1px solid #555;
+}
+
+.form-control::placeholder {
+    color: #aaa;
+}
+
+.table-light {
+    background-color: #f8f9fa;
+}
+
+.alert-success {
+    background-color: #28a745;
+    color: white;
+}
+
+.alert-danger {
+    background-color: #dc3545;
+    color: white;
+}
+
+.btn-primary {
+    background-color: #007bff;
+    border-color: #007bff;
+}
+
+.btn-success {
+    background-color: #28a745;
+    border-color: #28a745;
+}
+
+.btn-danger {
+    background-color: #dc3545;
+    border-color: #dc3545;
+}
+
+.btn-secondary {
+    background-color: #6c757d;
+    border-color: #6c757d;
+}
+
+#load-record, #update-form .btn-success, #clear-form {
+    margin-right: 20px;
+}
+
+/* Ensure buttons and icons are visible */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn::before {
+    font-family: "Bootstrap Icons"; /* Use Bootstrap Icons if needed */
+}
