@@ -1,3 +1,4 @@
+# working Ok only tele msg with inex 01
 import os
 from dotenv import load_dotenv
 import pandas as pd
