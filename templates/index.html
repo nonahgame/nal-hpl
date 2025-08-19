@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Medical Records</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=9">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="{{ url_for('index') }}">Medical Records</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('search') }}">Search</a>
+                    </li>
+                    {% if session.is_admin %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('admin') }}">Admin</a>
+                    </li>
+                    {% endif %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('logout') }}">Logout</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <h1>Medical Records</h1>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'success' if category == 'success' else 'danger' }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <form method="POST" action="{{ url_for('index') }}" class="mb-4">
+            <div class="input-group">
+                <input type="text" name="search_query" class="form-control" placeholder="Search by SN, Name, AM Number, or Complaint" value="{{ search_query or '' }}">
+                <button type="submit" class="btn btn-primary">Search</button>
+            </div>
+        </form>
+
+        {% if df is not none and not df.empty %}
+        <div class="table-responsive">
+            <table class="table table-light table-bordered">
+                <thead>
+                    <tr>
+                        {% for column in df.columns %}
+                        <th>{{ column.replace('_', ' ').title() }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for _, row in df.iterrows() %}
+                    <tr>
+                        {% for column in df.columns %}
+                        <td class="{% if column == 'temp' and row[column]|float > 37.0 %}temp-high{% elif column == 'temp' %}temp-normal{% elif column == 'bp' and row[column]|float > 140 %}bp-high{% elif column == 'bp' %}bp-normal{% elif column == 'bp1' and row[column]|float > 85 %}bp1-high{% elif column == 'bp1' %}bp1-normal{% endif %}">
+                            {{ row[column] }}
+                        </td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="d-flex justify-content-between">
+            {% if has_prev %}
+            <a href="{{ url_for('index', cursor=prev_cursor, direction='prev', search_query=search_query) }}" class="btn btn-primary">Previous</a>
+            {% else %}
+            <span></span>
+            {% endif %}
+            {% if has_next %}
+            <a href="{{ url_for('index', cursor=next_cursor, direction='next', search_query=search_query) }}" class="btn btn-primary">Next</a>
+            {% endif %}
+        </div>
+        {% else %}
+        <p>No records found.</p>
+        {% endif %}
+
+        {% if can_edit %}
+        <h2>Add New Entry</h2>
+        <form method="POST" action="{{ url_for('index') }}" class="mb-4">
+            <input type="hidden" name="action" value="add">
+            <div class="row">
+                {% for field in ['sn', 'date', 'time', 'am_number', 'rank', 'first_second_name', 'unit', 'phone_no', 'age', 'temp', 'bp', 'bp1', 'pauls', 'rest', 'wt', 'complain', 'diagn', 'plan', 'rmks'] %}
+                <div class="col-md-4 mb-3">
+                    <label for="add_{{ field }}" class="form-label">{{ field.replace('_', ' ').title() }}</label>
+                    <input type="{{ 'number' if field in ['age', 'temp', 'bp', 'bp1', 'pauls'] else 'text' }}" name="{{ field }}" id="add_{{ field }}" class="form-control" {{ 'step=any' if field in ['temp', 'bp', 'bp1'] else '' }}>
+                </div>
+                {% endfor %}
+            </div>
+            <button type="submit" class="btn btn-success">Add Entry</button>
+        </form>
+
+        <h2>Update Entry</h2>
+        <form method="POST" action="{{ url_for('index') }}" id="update-form" class="mb-4">
+            <input type="hidden" name="action" value="update">
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <label for="update_id" class="form-label">ID</label>
+                    <input type="number" name="id" id="update_id" class="form-control" required min="1">
+                </div>
+            </div>
+            <div class="mb-3">
+                <button type="button" id="load-record" class="btn btn-primary">Load</button>
+                <button type="submit" class="btn btn-success">Update</button>
+                <button type="button" id="clear-form" class="btn btn-secondary">Clear Form</button>
+                <span id="loading-indicator" style="display: none; color: white;">Loading...</span>
+            </div>
+            <div class="row">
+                {% for field in ['sn', 'date', 'time', 'am_number', 'rank', 'first_second_name', 'unit', 'phone_no', 'age', 'temp', 'bp', 'bp1', 'pauls', 'rest', 'wt', 'complain', 'diagn', 'plan', 'rmks'] %}
+                <div class="col-md-4 mb-3">
+                    <label for="update_{{ field }}" class="form-label">{{ field.replace('_', ' ').title() }}</label>
+                    <input type="{{ 'number' if field in ['age', 'temp', 'bp', 'bp1', 'pauls'] else 'text' }}" name="{{ field }}" id="update_{{ field }}" class="form-control" {{ 'step=any' if field in ['temp', 'bp', 'bp1'] else '' }}>
+                </div>
+                {% endfor %}
+            </div>
+        </form>
+
+        <h2>Delete Entry</h2>
+        <form method="POST" action="{{ url_for('index') }}" class="mb-4">
+            <input type="hidden" name="action" value="delete">
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <label for="delete_id" class="form-label">ID</label>
+                    <input type="number" name="id" id="delete_id" class="form-control" required min="1">
+                </div>
+            </div>
+            <button type="submit" class="btn btn-danger">Delete Entry</button>
+        </form>
+        {% endif %}
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const loadButton = document.getElementById('load-record');
+            const updateForm = document.getElementById('update-form');
+            const clearButton = document.getElementById('clear-form');
+            const loadingIndicator = document.getElementById('loading-indicator');
+
+            loadButton.addEventListener('click', async () => {
+                const idInput = document.getElementById('update_id');
+                const id = idInput.value.trim();
+                if (!id || isNaN(id) || parseInt(id) <= 0) {
+                    alert('Please enter a valid ID (positive number)');
+                    console.log('Load failed: Invalid ID', id);
+                    return;
+                }
+
+                loadingIndicator.style.display = 'inline';
+                loadButton.disabled = true;
+
+                try {
+                    console.log(`Fetching record ID: ${id}`);
+                    const response = await fetch(`/get_record/${encodeURIComponent(id)}`, {
+                        method: 'GET',
+                        headers: { 'Accept': 'application/json' }
+                    });
+                    const data = await response.json();
+
+                    if (response.ok) {
+                        const fields = ['sn', 'date', 'time', 'am_number', 'rank', 'first_second_name', 'unit', 'phone_no', 'age', 'temp', 'bp', 'bp1', 'pauls', 'rest', 'wt', 'complain', 'diagn', 'plan', 'rmks'];
+                        fields.forEach(field => {
+                            const input = document.getElementById(`update_${field}`);
+                            if (input) {
+                                input.value = data[field] ?? '';
+                            }
+                        });
+                        console.log(`Loaded record ID: ${id}`, data);
+                        alert('Record loaded successfully');
+                    } else {
+                        fields.forEach(field => {
+                            const input = document.getElementById(`update_${field}`);
+                            if (input) input.value = '';
+                        });
+                        console.log(`Record ID ${id} not found: ${data.error}`);
+                        alert(data.error || 'Record not found');
+                    }
+                } catch (error) {
+                    console.error('Error loading record:', error);
+                    alert('Error loading record. Please check your connection and try again.');
+                } finally {
+                    loadingIndicator.style.display = 'none';
+                    loadButton.disabled = false;
+                }
+            });
+
+            updateForm.addEventListener('submit', async (event) => {
+                event.preventDefault();
+                const idInput = document.getElementById('update_id');
+                const id = idInput.value.trim();
+
+                if (!id || isNaN(id) || parseInt(id) <= 0) {
+                    alert('Please enter a valid ID (positive number)');
+                    console.log('Update failed: Invalid ID', id);
+                    return;
+                }
+
+                const formData = new FormData(updateForm);
+                console.log('Form action:', updateForm.action); // Debug form action
+                console.log('Form data:', Object.fromEntries(formData)); // Debug form data
+
+                try {
+                    console.log('Submitting update for record ID:', id);
+                    const response = await fetch('/', {
+                        method: 'POST',
+                        body: formData,
+                        headers: {
+                            'Accept': 'application/json' // Expect JSON response
+                        }
+                    });
+
+                    const data = await response.json(); // Parse JSON response
+                    if (response.ok) {
+                        updateForm.reset();
+                        window.location.reload();
+                        console.log('Update successful:', data);
+                        alert('Record updated successfully');
+                    } else {
+                        console.error('Update failed:', data.error || data);
+                        alert(data.error || 'Error updating record. Please try again.');
+                    }
+                } catch (error) {
+                    console.error('Error updating record:', error);
+                    alert('Error updating record: ' + error.message);
+                }
+            });
+
+            clearButton.addEventListener('click', () => {
+                updateForm.reset();
+                console.log('Update form cleared');
+            });
+        });
+    </script>
+</body>
+</html>
