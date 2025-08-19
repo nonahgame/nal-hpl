@@ -453,44 +453,29 @@ def index():
 # Admin route
 @app.route('/admin', methods=['GET', 'POST'])
 def admin():
-    global ADMIN_PASSPHRASE
     try:
-        if 'user_id' not in session:
-            logger.info("User not logged in, redirecting to login")
-            flash('Please log in first', 'danger')
-            return redirect(url_for('login'))
-
-        if not session.get('is_admin'):
-            if request.method == 'POST' and request.form.get('action') == 'admin_login':
-                passphrase = request.form.get('passphrase')
-                logger.info(f"Admin passphrase attempt by user {session['username']}")
-                if not ADMIN_PASSPHRASE:
-                    ADMIN_PASSPHRASE = os.getenv("ADMIN_PASSPHRASE", "admin1234")
-                    logger.warning("ADMIN_PASSPHRASE was undefined, reloaded from env")
-                if passphrase == ADMIN_PASSPHRASE:
-                    conn = get_db_connection()
-                    c = conn.cursor()
-                    c.execute("UPDATE users SET is_admin = 1 WHERE id = ?", (session['user_id'],))
-                    conn.commit()
-                    conn.close()
-                    upload_to_github(DB_PATH, "gwoza-df-amb.db")
-                    session['is_admin'] = True
-                    sync_send_telegram_message(f"User {session['username']} gained admin access")
-                    logger.info(f"Admin access granted for user {session['username']}")
-                    return redirect(url_for('admin'))
-                else:
-                    logger.warning(f"Invalid admin passphrase attempt by user {session['username']}")
-                    flash('Invalid passphrase', 'danger')
-                    return render_template('admin_login.html')
-            logger.info("Non-admin user, rendering admin login page")
-            return render_template('admin_login.html')
+        if 'user_id' not in session or not session.get('is_admin'):
+            logger.info("Non-admin user attempted to access admin panel")
+            flash('You do not have permission to access this page.', 'danger')
+            return redirect(url_for('index'))
 
         conn = get_db_connection()
         c = conn.cursor()
 
+        c.execute("SELECT id, username, email FROM users")
+        users = c.fetchall()
+        c.execute("SELECT user_id FROM edit_permissions")
+        edit_permissions = c.fetchall()
+
+        columns = 'id, sn, date, time, am_number, rank, first_second_name, unit, phone_no, age, temp, bp, bp1, pauls, rest, wt, complain, diagn, plan, rmks'
+        c.execute(f"SELECT {columns} FROM todo ORDER BY id DESC LIMIT 5")
+        rows = c.fetchall()
+        df = pd.DataFrame([dict(row) for row in rows]) if rows else pd.DataFrame()
+
         if request.method == 'POST':
             action = request.form.get('action')
             logger.info(f"Processing admin action: {action}")
+
             try:
                 if action == 'add':
                     fields = ['sn', 'date', 'time', 'am_number', 'rank', 'first_second_name', 'unit', 'phone_no', 'age', 'temp', 'bp', 'bp1', 'pauls', 'rest', 'wt', 'complain', 'diagn', 'plan', 'rmks']
@@ -507,17 +492,22 @@ def admin():
                                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''', values)
                     conn.commit()
                     upload_to_github(DB_PATH, "gwoza-df-amb.db")
-                    sync_send_telegram_message(f"Admin added entry: {values[0] or 'No SN'}")
+                    sync_send_telegram_message(f"New entry added: {values[0] or 'No SN'} by admin {session['username']}")
+                    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                        conn.close()
+                        return jsonify({'status': 'success', 'message': 'Entry added successfully'})
                     flash('Entry added successfully!', 'success')
 
                 elif action == 'update':
-                    id = request.form['id']
+                    id = request.form.get('id')
                     try:
                         id = int(id)
                         c.execute("SELECT * FROM todo WHERE id = ?", (id,))
-                        record = c.fetchone()
-                        if not record:
+                        if not c.fetchone():
                             logger.warning(f"Update failed: Record ID {id} not found")
+                            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                                conn.close()
+                                return jsonify({'status': 'error', 'error': 'Record ID does not exist'}), 404
                             flash('Entry ID does not exist', 'danger')
                         else:
                             fields = ['sn', 'date', 'time', 'am_number', 'rank', 'first_second_name', 'unit', 'phone_no', 'age', 'temp', 'bp', 'bp1', 'pauls', 'rest', 'wt', 'complain', 'diagn', 'plan', 'rmks']
@@ -535,87 +525,159 @@ def admin():
                                          WHERE id = ?''', values)
                             conn.commit()
                             upload_to_github(DB_PATH, "gwoza-df-amb.db")
-                            sync_send_telegram_message(f"Admin updated entry ID: {id}")
+                            sync_send_telegram_message(f"Entry ID {id} updated by admin {session['username']}")
+                            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                                conn.close()
+                                return jsonify({'status': 'success', 'message': 'Entry updated successfully'})
                             flash('Entry updated successfully!', 'success')
                     except ValueError as e:
                         logger.error(f"Update error: Invalid ID {id}: {str(e)}")
-                        flash(f"Invalid ID: {str(e)}", 'danger')
+                        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                            conn.close()
+                            return jsonify({'status': 'error', 'error': f'Invalid ID: {str(e)}'}), 400
+                        flash(f'Invalid ID: {str(e)}', 'danger')
                     except Exception as e:
                         logger.error(f"Update error for ID {id}: {str(e)}\n{traceback.format_exc()}")
-                        flash(f"Error updating record: {str(e)}", 'danger')
+                        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                            conn.close()
+                            return jsonify({'status': 'error', 'error': f'Error updating record: {str(e)}'}), 500
+                        flash(f'Error updating record: {str(e)}', 'danger')
 
                 elif action == 'delete':
-                    id = request.form['id']
+                    id = request.form.get('id')
                     try:
                         id = int(id)
                         c.execute("SELECT * FROM todo WHERE id = ?", (id,))
                         if not c.fetchone():
                             logger.warning(f"Delete failed: Record ID {id} not found")
+                            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                                conn.close()
+                                return jsonify({'status': 'error', 'error': 'Record ID does not exist'}), 404
                             flash('Entry ID does not exist', 'danger')
                         else:
                             c.execute("DELETE FROM todo WHERE id = ?", (id,))
                             conn.commit()
                             upload_to_github(DB_PATH, "gwoza-df-amb.db")
-                            sync_send_telegram_message(f"Admin deleted entry ID: {id}")
+                            sync_send_telegram_message(f"Entry ID {id} deleted by admin {session['username']}")
+                            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                                conn.close()
+                                return jsonify({'status': 'success', 'message': 'Entry deleted successfully'})
                             flash('Entry deleted successfully!', 'success')
                     except ValueError:
-                        flash('Invalid ID', 'danger')
                         logger.warning(f"Delete failed: Invalid ID {id}")
+                        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                            conn.close()
+                            return jsonify({'status': 'error', 'error': 'Invalid ID'}), 400
+                        flash('Invalid ID', 'danger')
                     except Exception as e:
                         logger.error(f"Delete error for ID {id}: {str(e)}\n{traceback.format_exc()}")
-                        flash(f"Error deleting record: {str(e)}", 'danger')
+                        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                            conn.close()
+                            return jsonify({'status': 'error', 'error': f'Error deleting record: {str(e)}'}), 500
+                        flash(f'Error deleting record: {str(e)}', 'danger')
 
                 elif action == 'manage_user':
-                    user_id = request.form['user_id']
-                    can_edit = 1 if request.form.get('can_edit') else 0
-                    c.execute("INSERT OR REPLACE INTO edit_permissions (user_id, can_edit) VALUES (?, ?)", (user_id, can_edit))
-                    conn.commit()
-                    upload_to_github(DB_PATH, "gwoza-df-amb.db")
-                    sync_send_telegram_message(f"Admin updated edit permissions for user ID: {user_id}")
-                    flash('User permissions updated successfully!', 'success')
+                    user_id = request.form.get('user_id')
+                    can_edit = 'can_edit' in request.form
+                    try:
+                        user_id = int(user_id)
+                        c.execute("SELECT id FROM users WHERE id = ?", (user_id,))
+                        if not c.fetchone():
+                            logger.warning(f"Manage user failed: User ID {user_id} not found")
+                            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                                conn.close()
+                                return jsonify({'status': 'error', 'error': 'User ID does not exist'}), 404
+                            flash('User ID does not exist', 'danger')
+                        else:
+                            c.execute("SELECT * FROM edit_permissions WHERE user_id = ?", (user_id,))
+                            if c.fetchone():
+                                c.execute("UPDATE edit_permissions SET can_edit = ? WHERE user_id = ?", (1 if can_edit else 0, user_id))
+                            else:
+                                c.execute("INSERT INTO edit_permissions (user_id, can_edit) VALUES (?, ?)", (user_id, 1 if can_edit else 0))
+                            conn.commit()
+                            sync_send_telegram_message(f"User ID {user_id} edit permission set to {can_edit} by admin {session['username']}")
+                            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                                conn.close()
+                                return jsonify({'status': 'success', 'message': 'User permissions updated successfully'})
+                            flash('User permissions updated successfully!', 'success')
+                    except ValueError:
+                        logger.warning(f"Manage user failed: Invalid user ID {user_id}")
+                        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                            conn.close()
+                            return jsonify({'status': 'error', 'error': 'Invalid user ID'}), 400
+                        flash('Invalid user ID', 'danger')
+                    except Exception as e:
+                        logger.error(f"Manage user error for user ID {user_id}: {str(e)}\n{traceback.format_exc()}")
+                        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                            conn.close()
+                            return jsonify({'status': 'error', 'error': f'Error updating user permissions: {str(e)}'}), 500
+                        flash(f'Error updating user permissions: {str(e)}', 'danger')
 
                 elif action == 'delete_user':
-                    user_id = request.form['user_id']
-                    c.execute("DELETE FROM users WHERE id = ?", (user_id,))
-                    c.execute("DELETE FROM edit_permissions WHERE user_id = ?", (user_id,))
-                    conn.commit()
-                    upload_to_github(DB_PATH, "gwoza-df-amb.db")
-                    sync_send_telegram_message(f"Admin deleted user ID: {user_id}")
-                    flash('User deleted successfully!', 'success')
+                    user_id = request.form.get('user_id')
+                    try:
+                        user_id = int(user_id)
+                        c.execute("SELECT id FROM users WHERE id = ?", (user_id,))
+                        if not c.fetchone():
+                            logger.warning(f"Delete user failed: User ID {user_id} not found")
+                            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                                conn.close()
+                                return jsonify({'status': 'error', 'error': 'User ID does not exist'}), 404
+                            flash('User ID does not exist', 'danger')
+                        else:
+                            c.execute("DELETE FROM users WHERE id = ?", (user_id,))
+                            c.execute("DELETE FROM edit_permissions WHERE user_id = ?", (user_id,))
+                            conn.commit()
+                            sync_send_telegram_message(f"User ID {user_id} deleted by admin {session['username']}")
+                            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                                conn.close()
+                                return jsonify({'status': 'success', 'message': 'User deleted successfully'})
+                            flash('User deleted successfully!', 'success')
+                    except ValueError:
+                        logger.warning(f"Delete user failed: Invalid user ID {user_id}")
+                        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                            conn.close()
+                            return jsonify({'status': 'error', 'error': 'Invalid user ID'}), 400
+                        flash('Invalid user ID', 'danger')
+                    except Exception as e:
+                        logger.error(f"Delete user error for user ID {user_id}: {str(e)}\n{traceback.format_exc()}")
+                        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                            conn.close()
+                            return jsonify({'status': 'error', 'error': f'Error deleting user: {str(e)}'}), 500
+                        flash(f'Error deleting user: {str(e)}', 'danger')
 
                 elif action == 'change_passphrase':
-                    new_passphrase = request.form['new_passphrase']
-                    if new_passphrase:
-                        ADMIN_PASSPHRASE = new_passphrase
-                        logger.info(f"Admin passphrase changed by user {session['username']}")
-                        sync_send_telegram_message(f"Admin changed passphrase by user {session['username']}")
-                        flash('Passphrase changed successfully!', 'success')
+                    new_passphrase = request.form.get('new_passphrase')
+                    if not new_passphrase:
+                        logger.warning("Change passphrase failed: No passphrase provided")
+                        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                            conn.close()
+                            return jsonify({'status': 'error', 'error': 'No passphrase provided'}), 400
+                        flash('No passphrase provided', 'danger')
                     else:
-                        logger.warning(f"Invalid passphrase change attempt by user {session['username']}: empty passphrase")
-                        flash('New passphrase cannot be empty', 'danger')
+                        c.execute("UPDATE admin SET passphrase = ? WHERE id = 1", (new_passphrase,))
+                        conn.commit()
+                        sync_send_telegram_message(f"Admin passphrase changed by {session['username']}")
+                        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                            conn.close()
+                            return jsonify({'status': 'success', 'message': 'Passphrase changed successfully'})
+                        flash('Passphrase changed successfully!', 'success')
 
             except Exception as e:
                 logger.error(f"Admin action error: {str(e)}\n{traceback.format_exc()}")
-                flash(f"Error processing action: {str(e)}", 'danger')
-
-        try:
-            c.execute("SELECT * FROM users")
-            users = c.fetchall()
-            c.execute("SELECT id, sn, date, time, am_number, rank, first_second_name, unit, phone_no, age, temp, bp, bp1, pauls, rest, wt, complain, diagn, plan, rmks FROM todo")
-            rows = c.fetchall()
-            df = pd.DataFrame([dict(row) for row in rows])
-        except Exception as e:
-            logger.error(f"Admin data fetch error: {str(e)}\n{traceback.format_exc()}")
-            flash(f"Database error: {str(e)}", 'danger')
-            conn.close()
-            return redirect(url_for('index'))
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                    conn.close()
+                    return jsonify({'status': 'error', 'error': f'Error processing action: {str(e)}'}), 500
+                flash(f'Error processing action: {str(e)}', 'danger')
 
         conn.close()
-        return render_template('admin.html', df=df, users=users)
+        return render_template('admin.html', users=users, edit_permissions=edit_permissions, df=df)
 
     except Exception as e:
         logger.error(f"Error in admin route: {str(e)}\n{traceback.format_exc()}")
-        flash(f"Internal Server Error: {str(e)}", 'danger')
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({'status': 'error', 'error': f'Internal Server Error: {str(e)}'}), 500
+        flash(f'Internal Server Error: {str(e)}', 'danger')
         return redirect(url_for('index'))
 
 # Login route
