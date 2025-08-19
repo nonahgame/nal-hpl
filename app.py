@@ -202,7 +202,7 @@ def init_db():
         c.execute("SELECT * FROM users WHERE is_admin = 1")
         if not c.fetchone():
             default_admin_password = generate_password_hash("admin123")
-           Somite it back to the database it will throw error. Error updating record. Please try again in the browser. Modified and provide me the full modified one in separate cells, the scripts; c.execute("INSERT INTO users (first_name, second_name, email, phone, password, username, is_admin) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            c.execute("INSERT INTO users (first_name, second_name, email, phone, password, username, is_admin) VALUES (?, ?, ?, ?, ?, ?, ?)",
                      ("Admin", "User", "admin@example.com", "0000000000", default_admin_password, "admin", 1))
             logger.info("Created default admin user")
         
